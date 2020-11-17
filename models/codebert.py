@@ -1,26 +1,20 @@
 from __future__ import absolute_import, division, print_function
 
-import argparse
-import glob
 import logging
-import os
-import pickle
-import random
-import re
-import shutil
-import json
-# from utils import generate_embeddings_for_pooling
+import torch
 
-import numpy as np
+from models.tokenizer import Tokenizer
+from utils import get_start_idxs_batched
 import torch
 from transformers import RobertaConfig, RobertaForSequenceClassification, RobertaForMaskedLM, RobertaTokenizer
 
 logger = logging.getLogger(__name__)
 
-class codebert(object):
+class codebert():
     def __init__(self, model_type, model_path, device):
         self.model_type = model_type
-        self.tokenizer = RobertaTokenizer.from_pretrained(model_path)
+        self.tokenizer = Tokenizer.from_pretrained(model_path)
+        self.tokenizer.__class__ = Tokenizer         # not perfect convert
         if model_type == "mlm":
             self.model = RobertaForMaskedLM.from_pretrained(model_path)
         elif model_type == "cls":
@@ -33,6 +27,8 @@ class codebert(object):
         if isinstance(inputs, str):
             inputs = [inputs]
         for sent in inputs:
+            if isinstance(sent, list):
+                sent = " ".join(sent)
             if cut_and_pad:
                 tokens = self.tokenizer.tokenize(sent)[:self.block_size-2]
                 tokens = [self.tokenizer.cls_token] + tokens + [self.tokenizer.sep_token]
@@ -72,21 +68,43 @@ class codebert(object):
         return outputs
 
     def run_info(self, inputs, batch_size=16, need_attn=False):
-        input_ids = self.tokenize(inputs, cut_and_pad=True, ret_id=True)
+        '''
+            inputs is list of token list
+        '''
+        # compute start_idxs and end_idxs
+        input_subs = self.tokenize(inputs, cut_and_pad=False, ret_id=False)
+        b_start_idxs, b_end_idxs = get_start_idxs_batched(inputs, input_subs)
+        input_ids = list(map(lambda x: self.tokenizer.convert_tokens_to_ids(x), input_subs))
+        def pad(seq):
+            seq = seq[:self.block_size - 2]
+            seq += [self.tokenizer.pad_token_id] * (self.block_size - len(seq))
+            return seq
+        input_ids = list(map(pad, input_ids))
+        input_ids = torch.LongTensor(input_ids)
+
+        max_len = max(map(len, b_start_idxs))
+        for i in range(len(b_start_idxs)):
+            pad_to = lambda lst: list(lst) + [b_end_idxs[i][-1]] * (max_len - len(lst))
+            b_start_idxs[i] = pad_to(b_start_idxs[i])
+            b_end_idxs[i] = pad_to(b_end_idxs[i])
+        b_start_idxs = torch.LongTensor(b_start_idxs).to(input_ids)
+        b_end_idxs = torch.LongTensor(b_end_idxs).to(input_ids)
+        
+
         outputs = []
         attns = []
         batch_num = (len(input_ids) - 1) // batch_size + 1
         for step in range(batch_num):
-            batch = torch.tensor(input_ids[step*batch_size: (step+1)*batch_size])
+            batch = input_ids[step*batch_size: (step+1)*batch_size]
             output = self._run_batch(batch, need_attn)
             if need_attn:
                 output, attn = output
             outputs.append(output)
             if need_attn:
-                attns.append(attn[-1])      # get last layer attn
-        logits = torch.stack(outputs, 0).squeeze(0)
+                attns.append(attn[-1])     # get last layer attn   
+        logits = torch.stack(outputs)
         if need_attn:
-            attns = torch.stack(attns, 0).squeeze(0)
+            attns = torch.stack(attns).squeeze(0)
         probs = torch.nn.Softmax(dim=-1)(logits)
 
         output_dict = {}
@@ -96,9 +114,11 @@ class codebert(object):
         output_dict["probs"] = probs
         output_dict["attentions"] = attentions if need_attn else None
         output_dict["predicted_labels"] = probs.argmax(-1)
+        output_dict["start_idxs"] = b_start_idxs
+        output_dict["end_idxs"] = b_end_idxs
         return output_dict
 
-    # def nor
+
 
 
 class codebert_mlm(codebert):

@@ -8,8 +8,9 @@ import logging
 class GradientSaliency(SaliencyScorer):
 
     def __init__(self, model):
-        super().__init__(model)
-        self.init_from_model()
+        super().__init__()
+        self._model = model
+        self._model.model.eval()
 
     def init_from_model(self) :
         logging.info("Initialising from Model .... ")
@@ -49,17 +50,5 @@ class GradientSaliency(SaliencyScorer):
             output_dict['attentions'] = gradients
 
         output_dict = self.normalize_attentions(output_dict)
-
-        return output_dict
-
-    def normalize_attentions(self, output_dict):
-        attentions = output_dict['attentions'].unsqueeze(-1)
-        document_token_starts = output_dict['document-starting-offsets']
-        document_token_ends = output_dict['document-ending-offsets']
-        
-        token_attentions, token_mask = generate_embeddings_for_pooling(attentions, document_token_starts, document_token_ends)
-
-        token_attentions = (token_attentions * token_mask.unsqueeze(-1)).squeeze(-1).sum(-1)
-        output_dict["attentions"] = token_attentions / token_attentions.sum(-1, keepdim=True)
 
         return output_dict

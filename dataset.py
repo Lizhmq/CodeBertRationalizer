@@ -38,7 +38,7 @@ def mask_tokens(inputs, tokenizer, mlm_probability):
     special_tokens_mask = [tokenizer.get_special_tokens_mask(val, already_has_special_tokens=True) for val in
                            labels.tolist()]
     probability_matrix.masked_fill_(torch.tensor(special_tokens_mask, dtype=torch.bool).to(inputs.device), value=0.0)
-    if tokenizer._pad_token is not None:
+    if tokenizer.pad_token is not None:
         padding_mask = labels.eq(tokenizer.pad_token_id)
         probability_matrix.masked_fill_(padding_mask, value=0.0)
         
@@ -181,102 +181,3 @@ class ClassifierDataset(Dataset):
 
     def __getitem__(self, item):
         return torch.tensor(self.inputs[item]), torch.tensor(self.labels[item])
-
-class EvalDataset(Dataset):
-    def __init__(self, tokenizer, args, logger, file_type='train', block_size=1024):
-        if not os.path.exists(args.output_dir):
-            os.makedirs(args.output_dir)
-        cached_file = os.path.join(args.output_dir, file_type+"_blocksize_%d"%(block_size))
-        if os.path.exists(cached_file) and not args.overwrite_cache:
-            with open(cached_file, 'rb') as handle:
-                self.inputs = pickle.load(handle)
-
-        else:
-            self.inputs = []
-
-            datafile = os.path.join(args.data_dir, f"{file_type}.txt")
-            with open(datafile) as f:
-                data = f.readlines()
-
-            length = len(data)
-            logger.info("Data size: %d"%(length))
-            input_ids = []
-            for idx,x in enumerate(data):
-                x = x.strip()
-                if x.startswith("<s>") and x.endswith("</s>"):
-                    pass
-                else:
-                    x = "<s> " + x + " </s>"
-                try:
-                    input_ids.extend(tokenizer.encode(x))
-                except Exception:
-                    pass
-                if idx % (length//10) == 0:
-                    percent = idx / (length//10) * 10
-                    logger.warning("load %d"%(percent))
-            del data
-            gc.collect()
-
-            logger.info(f"tokens: {len(input_ids)}")
-            self.split(input_ids, tokenizer, logger, block_size=block_size)
-            del input_ids
-            gc.collect()
-
-            with open(cached_file, 'wb') as handle:
-                pickle.dump(self.inputs, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    
-    def split(self, input_ids, tokenizer, logger, block_size=1024):
-        sample = []
-        i = 0
-        while i < len(input_ids):
-            sample = input_ids[i: i+block_size]
-            if len(sample) == block_size:
-                for j in range(block_size):
-                    if tokenizer.convert_ids_to_tokens(sample[block_size-1-j])[0] == '\u0120':
-                        break
-                    if sample[block_size-1-j] in [tokenizer.bos_token_id, tokenizer.eos_token_id, tokenizer.sep_token_id]:
-                        if sample[block_size-1-j] != tokenizer.bos_token_id:
-                            j -= 1
-                        break
-                if j == block_size-1:
-                    print(tokenizer.decode(sample))
-                    exit()
-                sample = sample[: block_size-1-j]
-            # print(len(sample))
-            i += len(sample)
-            pad_len = block_size-len(sample)
-            sample += [tokenizer.pad_token_id]*pad_len
-            self.inputs.append(sample)
-
-            if len(self.inputs) % 10000 == 0:
-                logger.info(f"{len(self.inputs)} samples")
-
-
-    def __len__(self):
-        return len(self.inputs)
-
-    def __getitem__(self, item):
-        return torch.tensor(self.inputs[item])
-        
-
-
-class lineDataset(Dataset):
-    def __init__(self, tokenizer, args, logger, file_type='test', block_size=924):
-        datafile = os.path.join(args.data_dir, f"{file_type}.json")
-        with open(datafile) as f:
-            datas = f.readlines()
-
-        length = len(datas)
-        logger.info("Data size: %d"%(length))
-        self.inputs = []
-        self.gts = []
-        for data in datas:
-            data = json.loads(data.strip())
-            self.inputs.append(tokenizer.encode(data["input"])[-block_size:])
-            self.gts.append(data["gt"])
-
-    def __len__(self):
-        return len(self.inputs)
-
-    def __getitem__(self, item):
-        return torch.tensor(self.inputs[item]), self.gts[item]
