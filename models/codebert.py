@@ -45,13 +45,13 @@ class codebert():
         return rets
 
     def _run_batch(self, batch, need_attn=False):
-        self.model.eval()
+        # self.model.eval()
         batch_max_length = batch.ne(self.tokenizer.pad_token_id).sum(-1).max().item()
         inputs = batch[:, :batch_max_length]
         inputs = inputs.to(self.device)
-        with torch.no_grad():
-            outputs = self.model(inputs, attention_mask=inputs.ne(self.tokenizer.pad_token_id), output_attentions=True)
-            logits, attentions = outputs[0], outputs[-1]
+        # with torch.no_grad():
+        outputs = self.model(inputs, attention_mask=inputs.ne(self.tokenizer.pad_token_id), output_attentions=True)
+        logits, attentions = outputs[0], outputs[-1]
         if need_attn:
             return logits, attentions
         return logits
@@ -67,7 +67,7 @@ class codebert():
         outputs = torch.stack(outputs, 0).squeeze(0)
         return outputs
 
-    def run_info(self, inputs, batch_size=16, need_attn=False):
+    def run_info(self, inputs, batch_size=16, need_attn=True):
         '''
             inputs is list of token list
         '''
@@ -108,11 +108,13 @@ class codebert():
         probs = torch.nn.Softmax(dim=-1)(logits)
 
         output_dict = {}
-        attentions = attns[:, :, 0, :].mean(1)  # get mean on multi-heads
-
+        if need_attn:
+            attentions = attns[:, :, 0, :].mean(1)  # get mean on multi-heads
+        else:
+            attentions = None
         output_dict["logits"] = logits
         output_dict["probs"] = probs
-        output_dict["attentions"] = attentions if need_attn else None
+        output_dict["attentions"] = attentions
         output_dict["predicted_labels"] = probs.argmax(-1)
         output_dict["start_idxs"] = b_start_idxs
         output_dict["end_idxs"] = b_end_idxs
