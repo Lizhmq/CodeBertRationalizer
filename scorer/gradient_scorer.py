@@ -1,26 +1,27 @@
 from scorer.base_scorer import SaliencyScorer
-from models.utils import normalize_attentions
-from models.utils import generate_embeddings_for_pooling
+from utils import normalize_attentions
 import torch
-import logging
+import torch.nn as nn
 
 
-class GradientSaliency(SaliencyScorer):
+class GradientSaliency(nn.Module):
 
     def __init__(self, model):
         super().__init__()
         self._model = model
         self._model.model.eval()
+        self.embedding_layer = model.model.roberta.embeddings
 
-    def init_from_model(self) :
-        logging.info("Initialising from Model .... ")
-        model = self.model
-        self.embedding_layer = model.embeddings
 
-    def score(self, **kwargs) :
-        with torch.enable_grad() :
-            self.model.train()
+        # _embedding_layer = [x for x in model.model.modules() if any(x == y for y in self.embedding_layers)]
+        # assert len(_embedding_layer) == 1
 
+        # self.embedding_layer = _embedding_layer[0]
+
+
+    def forward(self, inputs):
+        with torch.enable_grad():
+            self._model.model.train()
             for param in self.embedding_layer.parameters():
                 param.requires_grad = True
 
@@ -30,7 +31,7 @@ class GradientSaliency(SaliencyScorer):
                 output.retain_grad()
 
             hook = self.embedding_layer.register_forward_hook(forward_hook)
-            output_dict = self.model.forward(**kwargs)
+            output_dict = self._model.run_info(inputs)
 
             hook.remove()
 
@@ -38,17 +39,21 @@ class GradientSaliency(SaliencyScorer):
             embeddings = embeddings_list[0]
 
             predicted_class_probs = output_dict["probs"][
-                torch.arange(output_dict["probs"].shape[0]), output_dict["predicted_labels"].detach()
+                torch.arange(output_dict["probs"].shape[0]), output_dict["predicted_labels"].squeeze().detach()
             ]  # (B, C)
 
 
             predicted_class_probs.sum().backward(retain_graph=True)
 
+
             gradients = ((embeddings * embeddings.grad).sum(-1).detach()).abs()
             gradients = gradients / gradients.sum(-1, keepdim=True)
 
-            output_dict['attentions'] = gradients
+            attentions = gradients
+            s_idxs = output_dict["start_idxs"]
+            e_idxs = output_dict["end_idxs"]
+            assert attentions is not None
 
-        output_dict = self.normalize_attentions(output_dict)
-
-        return output_dict
+            attentions = normalize_attentions(attentions, s_idxs, e_idxs)
+        
+        return attentions.cpu().data.numpy()

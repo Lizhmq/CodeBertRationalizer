@@ -102,7 +102,7 @@ class codebert():
             outputs.append(output)
             if need_attn:
                 attns.append(attn[-1])     # get last layer attn   
-        logits = torch.stack(outputs)
+        logits = torch.stack(outputs).squeeze(0)
         if need_attn:
             attns = torch.stack(attns).squeeze(0)
         probs = torch.nn.Softmax(dim=-1)(logits)

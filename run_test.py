@@ -1,6 +1,7 @@
 import torch
 from models.codebert import codebert_mlm, codebert_cls
 from scorer.base_scorer import SaliencyScorer
+from scorer.gradient_scorer import  GradientSaliency
 
 # device = torch.device("cuda", 0)
 device = torch.device("cpu")
@@ -12,7 +13,7 @@ inputs = [
     "void main ( ) { ALongVarName x ; }",
 ]
 inputs = [st.split() for st in inputs]
-scorer = SaliencyScorer(cls_model)
+scorer = GradientSaliency(cls_model)
 attentions = scorer(inputs)
 # print(attentions)
 print(attentions)
