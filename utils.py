@@ -1,5 +1,14 @@
+import random
+import numpy as np
+import torch
 import matplotlib.pyplot as plt
 from matplotlib import transforms
+
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
 
 def normalize_attentions(attentions, starting_offsets, ending_offsets):
@@ -26,7 +35,7 @@ def get_start_idxs_batched(b_tokens, b_sub_tokens, bpe_indicator='Ġ'):
         ends = ends[1:]
         # starts = [0] + starts + [len(b_sub_tokens[i]) - 1]
         # ends = [1] + ends + [len(b_sub_tokens[i])]
-        ends = list(filter(lambda x: x <= 512, ends))       # less than 512
+        ends = list(filter(lambda x: x <= 512 - 2, ends))       # less than 512, remove CLS SEP
         ss.append(starts[:len(ends)])
         es.append(ends)
     return ss, es
