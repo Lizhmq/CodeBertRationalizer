@@ -28,6 +28,7 @@ def main():
     else:
         device = torch.device("cuda", gpu_num)
     cls_model = codebert_cls(model_path, device)
+    cls_model.model = cls_model.model.to(device)
     scorer = GradientSaliency(cls_model)
     # scorer = SaliencyScorer(cls_model)
 
