@@ -16,6 +16,7 @@ def main():
     device = torch.device("cuda", 1)
     cls_model = codebert_cls("./save/java-new/checkpoint-39000-0.9505", device)
     cls_model.model = cls_model.model.to(device)
+    cls_model.model.eval()
     data_path = "../bigJava/datasets/valid.pkl"
     batch_size = 16
     data = load_data(data_path)
