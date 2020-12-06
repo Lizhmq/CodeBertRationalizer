@@ -2,5 +2,6 @@
 *.txt
 **/__pycache__
 save/*
-tmp.ipynb
+*.ipynb
+.ipynb_checkpoints/*
 pics/*
