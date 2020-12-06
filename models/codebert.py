@@ -50,7 +50,7 @@ class codebert():
         inputs = batch[:, :batch_max_length]
         inputs = inputs.to(self.device)
         # with torch.no_grad():
-        outputs = self.model(inputs, attention_mask=inputs.ne(self.tokenizer.pad_token_id), output_attentions=True)
+        outputs = self.model(inputs, attention_mask=inputs.ne(self.tokenizer.pad_token_id).to(inputs), output_attentions=True)
         logits, attentions = outputs[0], outputs[-1]
         if need_attn:
             return logits, attentions
@@ -80,7 +80,7 @@ class codebert():
             seq += [self.tokenizer.pad_token_id] * (self.block_size - len(seq))
             return seq
         input_ids = list(map(pad, input_ids))
-        input_ids = torch.LongTensor(input_ids)
+        input_ids = torch.LongTensor(input_ids).to(self.device)
 
         max_len = max(map(len, b_start_idxs))
         for i in range(len(b_start_idxs)):

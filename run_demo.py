@@ -6,6 +6,7 @@ from scorer.gradient_scorer import  GradientSaliency
 # device = torch.device("cuda", 0)
 device = torch.device("cpu")
 cls_model = codebert_cls("./save/java-classifier4/checkpoint-36000-0.9365", device)
+cls_model.model = cls_model.model.to(device)
 
 inputs = [
     "int main ( ) { int n , i ; n <= 11 ; return 0 }",
