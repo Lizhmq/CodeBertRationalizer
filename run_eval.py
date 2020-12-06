@@ -30,15 +30,16 @@ def main():
     test_num = 0
     test_true = 0
 
-    for i in tqdm(range(batch_num)):
-        batch_in = data["norm"][i * batch_size:(i + 1) * batch_size]
-        batch_in = [" ".join(tokens) for tokens in batch_in]
-        batch_size = len(batch_in)
-        batch_out = data["label"][i * batch_size:(i + 1) * batch_size]
-        predicted = cls_model.run(batch_in).cpu().data.numpy()
-        predicted = np.argmax(predicted, axis=1)
-        test_num += batch_size
-        test_true += np.sum(predicted == batch_out)
+    with torch.no_grad():
+        for i in tqdm(range(batch_num)):
+            batch_in = data["norm"][i * batch_size:(i + 1) * batch_size]
+            batch_in = [" ".join(tokens) for tokens in batch_in]
+            batch_size = len(batch_in)
+            batch_out = data["label"][i * batch_size:(i + 1) * batch_size]
+            predicted = cls_model.run(batch_in).cpu().data.numpy()
+            predicted = np.argmax(predicted, axis=1)
+            test_num += batch_size
+            test_true += np.sum(predicted == batch_out)
 
     print("Acc:", test_true / test_num)
 
