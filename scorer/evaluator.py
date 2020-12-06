@@ -1,4 +1,3 @@
-from numpy.lib.function_base import extract
 import torch
 import torch.nn as nn
 import math
