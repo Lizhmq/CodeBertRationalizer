@@ -138,21 +138,26 @@ class ClassifierDataset(Dataset):
             self.labels = []
             if file_type != "test":
                 datafile = os.path.join(args.data_dir, "train.pkl")
+                datafile2 = os.path.join(args.data_dir, "valid.pkl")
             else:
                 datafile = os.path.join(args.data_dir, "test.pkl")
             if file_type == 'train':
                 logger.warning("Creating features from dataset file at %s", datafile)
             datas = pickle.load(open(datafile, "rb"))
+            datas2 = pickle.load(open(datafile2, "rb"))
             labels = datas["label"]
             inputs = datas["norm"]
 
-            train_len = len(inputs)
-            split_l = int(train_len * split_rate)
+            labels2 = datas2["label"]
+            inputs2 = datas2["norm"]
+
+            # train_len = len(inputs)
+            # split_l = int(train_len * split_rate)
 
             if file_type == "train":
-                inputs, labels = inputs[:-split_l], labels[:-split_l]
+                inputs, labels = inputs, labels
             elif file_type == "dev":
-                inputs, labels = inputs[-split_l:], labels[-split_l:]
+                inputs, labels = inputs2, labels2
             length = len(inputs)
 
             for idx, (data, label) in enumerate(zip(inputs, labels)):

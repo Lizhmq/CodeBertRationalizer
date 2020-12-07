@@ -2,5 +2,7 @@
 *.txt
 **/__pycache__
 save/*
-tmp.ipynb
+baselines/save/*
+*.ipynb
+.ipynb_checkpoints/*
 pics/*
