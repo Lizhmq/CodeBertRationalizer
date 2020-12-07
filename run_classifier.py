@@ -34,7 +34,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler,TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from dataset import mask_tokens, ClassifierDataset
-from tokenizer import Tokenizer
+from models.tokenizer import Tokenizer
 
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -470,7 +470,8 @@ def main():
     pretrained = args.pretrain_dir
     if pretrained:
         # seems do_lower_case/device doesn't work
-        tokenizer = Tokenizer(pretrained, args.do_lower_case, args.device)
+        tokenizer = Tokenizer.from_pretrained(pretrained, args.do_lower_case, args.device)
+        tokenizer.__class__ = Tokenizer
         if args.model_type == "rnn":
             model = model_class(len(tokenizer), 768, 768, 1)
             model_last = os.path.join(pretrained, 'model.pt')
