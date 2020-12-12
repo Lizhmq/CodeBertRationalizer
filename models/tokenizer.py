@@ -10,8 +10,8 @@ class Tokenizer(RobertaTokenizer):
     def __init__(self) -> None:
         pass
         
-    def from_pretrained(model_path, do_lower_case=False, device=None):
-        return RobertaTokenizer.from_pretrained(model_path, do_lower_case=do_lower_case, devic=device)
+    def from_pretrained(model_path, do_lower_case=False):
+        return RobertaTokenizer.from_pretrained(model_path, do_lower_case=do_lower_case)
 
     def tokenize_with_special(self, text, masked_idxs=None):
         tokenized_text = self.tokenize(text)

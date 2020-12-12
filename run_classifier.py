@@ -207,7 +207,7 @@ def train(args, train_dataset, model, tokenizer, fh, pool):
                         torch.save(model_to_save.state_dict(), os.path.join(output_dir, "model.pt"))
                     else:
                         model_to_save.save_pretrained(output_dir)
-                    # tokenizer.save_pretrained(output_dir)
+                    tokenizer.save_pretrained(output_dir)
 
                     torch.save(args, os.path.join(output_dir, "training_args.bin"))
                     logger.info("Saving model checkpoint to %s", output_dir)
@@ -220,7 +220,7 @@ def train(args, train_dataset, model, tokenizer, fh, pool):
                         torch.save(model_to_save.state_dict(), os.path.join(last_output_dir, "model.pt"))
                     else:
                         model_to_save.save_pretrained(last_output_dir)
-                    # tokenizer.save_pretrained(last_output_dir)
+                    tokenizer.save_pretrained(last_output_dir)
                     idx_file = os.path.join(last_output_dir, 'idx_file.txt')
                     with open(idx_file, 'w', encoding='utf-8') as idxf:
                         idxf.write(str(0) + '\n')
@@ -470,7 +470,7 @@ def main():
     pretrained = args.pretrain_dir
     if pretrained:
         # seems do_lower_case/device doesn't work
-        tokenizer = Tokenizer.from_pretrained(pretrained, args.do_lower_case, args.device)
+        tokenizer = Tokenizer.from_pretrained(pretrained, args.do_lower_case)
         tokenizer.__class__ = Tokenizer
         if args.model_type == "rnn":
             model = model_class(len(tokenizer), 768, 768, 1)
