@@ -6,10 +6,10 @@ import pickle
 from tqdm import tqdm
 
 def main():
-    gpu_num = 6
-    model_path = "./save/java-new/checkpoint-39000-0.9505"
-    data_path = '../bigJava/datasets/test.pkl'
-    out_path = '../bigJava/datasets/test_tp.pkl'
+    gpu_num = 2
+    model_path = "./save/java0/checkpoint-16000-0.9311"
+    data_path = '../bigJava/datasets/valid.pkl'
+    out_path = '../bigJava/datasets/valid_tp.pkl'
 
     with open(data_path, 'rb') as f:
         test_data = pickle.load(f)
