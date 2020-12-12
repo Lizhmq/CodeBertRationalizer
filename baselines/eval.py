@@ -21,54 +21,7 @@ def gettensor(batch, device):
                            torch.tensor(lens, dtype=torch.long).to(device)
     inputs = inputs.permute([1, 0])
     return inputs, labels, lens
-    
 
-def trainEpochs(classifier, device, epochs, training_set, valid_set, criterion, opt, batch_size=32,
-                batch_size_eval=64, print_each=100, saving_path='./', lrdecay=1):
-    
-    classifier.train()
-    epoch = 0
-    i = 0
-    print_loss_total = 0
-    n_batch = int(training_set.get_size() / batch_size)
-    print('start training epoch ' + str(epoch + 1) + '....')
-    
-    while True:
-        batch = training_set.next_batch(batch_size)
-        if batch['new_epoch']:
-            epoch += 1
-            print_loss_total = 0
-            evaluate(classifier, device, valid_set, batch_size_eval)
-            classifier.train()
-            torch.save(classifier.state_dict(),
-                       os.path.join(saving_path, str(epoch)+'.pt'))
-            if lrdecay < 1:
-                adjust_learning_rate(optimizer, lrdecay)
-            if epoch == epochs:
-                break
-            i = 0
-            print('start training epoch ' + str(epoch + 1) + '....')
-        inputs, labels, lens = gettensor(batch, device)
-        
-        optimizer.zero_grad()
-        outputs= classifier(inputs, lens)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-
-        print_loss_total += loss.item()
-        if (i + 1) % print_each == 0: 
-            print_loss_avg = print_loss_total / print_each
-            print_loss_total = 0
-            print('\tEp %d %d/%d, loss = %.6f' \
-                  % (epoch + 1, (i + 1), n_batch, print_loss_avg))
-        i += 1
-
-def adjust_learning_rate(optimizer, decay_rate=0.8):
-    if type(optimizer) == NoamOpt:      # adjust lr only for simple Adam optimizer
-        return
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = param_group['lr'] * decay_rate
                 
 def evaluate(classifier, device, dataset, batch_size=128):
 
@@ -94,13 +47,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-gpu', type=str, default='-1')
     parser.add_argument('-model', type=str, default='LSTM')
-    parser.add_argument('-lr', type=float, default=0.003)
-    parser.add_argument('-epoch', type=int, default=20)
-    parser.add_argument('-bs', type=int, default=32)
     parser.add_argument('-bs_eval', type=int, default=64)
-    parser.add_argument('-l2p', type=float, default=0)
-    parser.add_argument('-dropout', type=float, default=0.1)
-    parser.add_argument('-lrdecay', type=float, default=1)
     parser.add_argument('-data', type=str, default='java')
     parser.add_argument('-save_name', type=str, default='java-lstm')
     parser.add_argument('--load_dataset', action='store_true')
@@ -108,20 +55,11 @@ if __name__ == "__main__":
     opt = parser.parse_args()
 
     _save = os.path.join("./save", opt.save_name)
-    if not os.path.isdir(_save):
-        os.mkdir(_save)
 
     data_dict = {"JAVA": "../../bigJava/datasets"}
     _data = data_dict[opt.data.upper()]
-    _drop = opt.dropout
-    _lr = opt.lr
-    _l2p = opt.l2p
-    _lrdecay = opt.lrdecay
     _load_dataset = opt.load_dataset
-    
-    _bs = opt.bs
     _bs_eval = opt.bs_eval
-    _ep = opt.epoch
 
     if int(opt.gpu) < 0:
         device = torch.device("cpu")
@@ -160,28 +98,16 @@ if __name__ == "__main__":
         enc = LSTMEncoder(embedding_dim=embedding_size,
                     hidden_dim=hidden_size,
                     n_layers=n_layers,
-                    drop_prob=_drop,
+                    drop_prob=0,
                     brnn=bidirection)
         classifier = LSTMClassifier(vocab_size=vocab_size,
                                 encoder=enc,
                                 num_class=n_class,
                                 device=device).to(device)
-        optimizer = optim.Adam(classifier.parameters(), lr=_lr, weight_decay=_l2p)
+        classifier.load_state_dict(torch.load(_save))
     else:       # Transformer
-        classifier = TransformerClassifier(vocab_size, n_class, hidden_size, d_ff=1024, h=8, N=n_layers, dropout=_drop).to(device)
-        optimizer = NoamOpt(classifier.embedding[0].d_model, 1, 2000,
-                    torch.optim.Adam(classifier.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
+        classifier = TransformerClassifier(vocab_size, n_class, hidden_size, d_ff=1024, h=8, N=n_layers, dropout=0).to(device)
+        classifier.load_state_dict(torch.load(_save))
 
-    criterion = nn.CrossEntropyLoss()
-    
-    batch = test_set.next_batch(1)
-    inputs, labels, lens = gettensor(batch, device)
-    optimizer.zero_grad()
     classifier.eval()
-    outputs = classifier(inputs, lens)
-    print(outputs)
-    outputs, attn = classifier(inputs, lens, need_attn=True)
-    print(outputs, attn.shape if attn else (0, 0))
-    
-    trainEpochs(classifier, device, _ep, training_set, valid_set, criterion, opt, saving_path=_save,
-                batch_size=_bs, batch_size_eval=_bs_eval, lrdecay=_lrdecay)
+    evaluate(classifier, device, test_set, _bs_eval)
