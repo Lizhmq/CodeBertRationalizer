@@ -6,6 +6,7 @@ from dataset import Java, Dataset
 from models.lstm_cls import LSTMEncoder, LSTMClassifier
 from models.transformer_cls import TransformerClassifier
 from models.transformer import NoamOpt, get_std_opt
+from transformers import AdamW
 
 import torch
 import torch.nn as nn
@@ -126,14 +127,14 @@ if __name__ == "__main__":
     if int(opt.gpu) < 0:
         device = torch.device("cpu")
     else:
-        device = torch.device("cuda")
-        os.environ["CUDA_VISIBLE_DEVICES"] = opt.gpu
+        # os.environ["CUDA_VISIBLE_DEVICES"] = opt.gpu
+        device = torch.device("cuda", int(opt.gpu))
 
     _model = opt.model
     vocab_size = 30000
     embedding_size = 512
-    hidden_size = 600
-    n_layers = 2
+    hidden_size = 512
+    n_layers = 6
     n_channel = -1
     n_class_dict = {"JAVA": 2}
     n_class = n_class_dict[opt.data.upper()]
@@ -168,9 +169,10 @@ if __name__ == "__main__":
                                 device=device).to(device)
         optimizer = optim.Adam(classifier.parameters(), lr=_lr, weight_decay=_l2p)
     else:       # Transformer
-        classifier = TransformerClassifier(vocab_size, n_class, hidden_size, d_ff=1024, h=8, N=n_layers, dropout=_drop).to(device)
-        optimizer = NoamOpt(classifier.embedding[0].d_model, 1, 2000,
-                    torch.optim.Adam(classifier.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
+        classifier = TransformerClassifier(vocab_size, n_class, hidden_size, d_ff=512, h=8, N=n_layers, dropout=_drop).to(device)
+        # optimizer = NoamOpt(classifier.embedding[0].d_model, 0.001, 200,
+        #             torch.optim.Adam(classifier.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
+        optimizer = AdamW(classifier.parameters(), lr=_lr, eps=1e-8)
 
     criterion = nn.CrossEntropyLoss()
     

@@ -250,7 +250,7 @@ class PositionalEncoding(nn.Module):
     def forward(self, x):
         emb = x + Variable(self.pe[:, :x.size(1)], 
                          requires_grad=False)
-        return self.dropout(emb), x
+        return self.dropout(emb)
 
 
 
@@ -307,13 +307,10 @@ class NoamOpt:
         "Implement `lrate` above"
         if step is None:
             step = self._step
-        return self.factor *             (self.model_size ** (-0.5) *
+        return self.factor * (self.model_size ** (-0.5) * \
             min(step ** (-0.5), step * self.warmup ** (-1.5)))
-    
-    def zero_grad(self):
-        
-        self.optimizer.zero_grad()
-        
+
+
 def get_std_opt(model):
     return NoamOpt(model.d_model, 1, 400,
                    torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))

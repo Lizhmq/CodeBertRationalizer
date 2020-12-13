@@ -27,12 +27,16 @@ class TransformerClassifier(nn.Module):
                 nn.init.xavier_uniform_(p)
     
     def forward(self, x, ls, need_attn=False):
-        
-        x_mask = (x == self.padding).unsqueeze(-2)
-        x, emb = self.embedding(x)      # ?????????
+        x = x.permute([1, 0])    # convert to batch first
+        x_zero_mask = (x == self.padding).unsqueeze(-1)
+        x_mask = (x != self.padding).unsqueeze(-2)
+        x = self.embedding(x)
         outputs = self.enc(x, x_mask)
-        outputs = outputs.permute([1, 0, 2])
-        outputs = torch.mean(outputs, dim=1)
+        # outputs = outputs.permute([1, 0, 2])
+        outputs = outputs.masked_fill(x_zero_mask, 0)
+        ls = torch.sum(~x_zero_mask, dim=1)
+        outputs = torch.sum(outputs, dim=1) / ls
+
         logits = self.classify(outputs)
         if need_attn:
             return logits, None         # todo
