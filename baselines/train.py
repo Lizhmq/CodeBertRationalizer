@@ -4,19 +4,25 @@ import pickle
 
 from dataset import Java, Dataset
 from models.lstm_cls import LSTMEncoder, LSTMClassifier
-from models.transformer_cls import TransformerClassifier
-from models.transformer import NoamOpt, get_std_opt
+from models.Transformer import TransformerClassifier
 from transformers import AdamW
 
 import torch
 import torch.nn as nn
 from torch import optim
-import numpy
+import numpy as np
 
  
-def gettensor(batch, device):
+def gettensor(batch, model):
     ''' Batch second '''
+    device = model.classify.weight.device
     inputs, labels, lens = batch['x'], batch['y'], batch['l']
+    with_cls = isinstance(model, TransformerClassifier)
+    if with_cls:    # add <CLS> to inputs
+        # cls = vocab_size
+        cls = model.model.embeddings.word_embeddings.weight.shape[0] - 1
+        inputs = np.insert(inputs, 0, [cls] * inputs.shape[0], axis=1)
+        lens = lens + 1     # numpy supported
     inputs, labels, lens = torch.tensor(inputs, dtype=torch.long).to(device), \
                            torch.tensor(labels, dtype=torch.long).to(device), \
                            torch.tensor(lens, dtype=torch.long).to(device)
@@ -49,7 +55,7 @@ def trainEpochs(classifier, device, epochs, training_set, valid_set, criterion, 
                 break
             i = 0
             print('start training epoch ' + str(epoch + 1) + '....')
-        inputs, labels, lens = gettensor(batch, device)
+        inputs, labels, lens = gettensor(batch, classifier)
         
         optimizer.zero_grad()
         outputs= classifier(inputs, lens)
@@ -81,7 +87,7 @@ def evaluate(classifier, device, dataset, batch_size=128):
         batch = dataset.next_batch(batch_size)
         if batch['new_epoch']:
             break
-        inputs, labels, lens = gettensor(batch, device)
+        inputs, labels, lens = gettensor(batch, classifier)
         with torch.no_grad():
             outputs = classifier(inputs, lens)        
             res = torch.argmax(outputs, dim=1) == labels
@@ -133,7 +139,7 @@ if __name__ == "__main__":
     _model = opt.model
     vocab_size = 30000
     embedding_size = 512
-    hidden_size = 512
+    hidden_size = 384
     n_layers = 6
     n_channel = -1
     n_class_dict = {"JAVA": 2}
@@ -169,7 +175,7 @@ if __name__ == "__main__":
                                 device=device).to(device)
         optimizer = optim.Adam(classifier.parameters(), lr=_lr, weight_decay=_l2p)
     else:       # Transformer
-        classifier = TransformerClassifier(vocab_size, n_class, hidden_size, d_ff=512, h=8, N=n_layers, dropout=_drop).to(device)
+        classifier = TransformerClassifier(vocab_size + 1, n_class, hidden_size, d_ff=1024, h=6, N=n_layers, dropout=_drop).to(device)
         # optimizer = NoamOpt(classifier.embedding[0].d_model, 0.001, 200,
         #             torch.optim.Adam(classifier.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
         optimizer = AdamW(classifier.parameters(), lr=_lr, eps=1e-8)
@@ -177,13 +183,13 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     
     batch = test_set.next_batch(1)
-    inputs, labels, lens = gettensor(batch, device)
+    inputs, labels, lens = gettensor(batch, classifier)
     optimizer.zero_grad()
     classifier.eval()
     outputs = classifier(inputs, lens)
     print(outputs)
     outputs, attn = classifier(inputs, lens, need_attn=True)
-    print(outputs, attn.shape if attn else (0, 0))
+    print(outputs, attn.shape if attn is not None else (0, 0))
     
     trainEpochs(classifier, device, _ep, training_set, valid_set, criterion, opt, saving_path=_save,
                 batch_size=_bs, batch_size_eval=_bs_eval, lrdecay=_lrdecay)
