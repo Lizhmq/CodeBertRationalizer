@@ -12,12 +12,21 @@ import torch.nn as nn
 from torch import optim
 import numpy as np
 
+
+class myDataParallel(nn.DataParallel):
+    def __getattr__(self, name: str):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
+
  
 def gettensor(batch, model):
     ''' Batch second '''
     device = model.classify.weight.device
     inputs, labels, lens = batch['x'], batch['y'], batch['l']
-    with_cls = isinstance(model, TransformerClassifier)
+    with_cls = isinstance(model.module, TransformerClassifier)
+    batch_first = with_cls
     if with_cls:    # add <CLS> to inputs
         # cls = vocab_size
         cls = model.model.embeddings.word_embeddings.weight.shape[0] - 1
@@ -26,7 +35,8 @@ def gettensor(batch, model):
     inputs, labels, lens = torch.tensor(inputs, dtype=torch.long).to(device), \
                            torch.tensor(labels, dtype=torch.long).to(device), \
                            torch.tensor(lens, dtype=torch.long).to(device)
-    inputs = inputs.permute([1, 0])
+    if not batch_first:
+        inputs = inputs.permute([1, 0])
     return inputs, labels, lens
     
 
@@ -56,9 +66,8 @@ def trainEpochs(classifier, device, epochs, training_set, valid_set, criterion, 
             i = 0
             print('start training epoch ' + str(epoch + 1) + '....')
         inputs, labels, lens = gettensor(batch, classifier)
-        
         optimizer.zero_grad()
-        outputs= classifier(inputs, lens)
+        outputs = classifier(inputs, lens)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -114,6 +123,12 @@ if __name__ == "__main__":
     
     opt = parser.parse_args()
 
+    if opt.gpu == "-1":
+        device = torch.device("cpu")
+    else:
+        device = torch.device("cuda")
+        # device = torch.device("cuda", int(opt.gpu))
+
     _save = os.path.join("./save", opt.save_name)
     if not os.path.isdir(_save):
         os.mkdir(_save)
@@ -130,17 +145,11 @@ if __name__ == "__main__":
     _bs_eval = opt.bs_eval
     _ep = opt.epoch
 
-    if int(opt.gpu) < 0:
-        device = torch.device("cpu")
-    else:
-        # os.environ["CUDA_VISIBLE_DEVICES"] = opt.gpu
-        device = torch.device("cuda", int(opt.gpu))
-
     _model = opt.model
     vocab_size = 30000
     embedding_size = 512
-    hidden_size = 384
-    n_layers = 6
+    hidden_size = 768
+    n_layers = 12
     n_channel = -1
     n_class_dict = {"JAVA": 2}
     n_class = n_class_dict[opt.data.upper()]
@@ -173,23 +182,25 @@ if __name__ == "__main__":
                                 encoder=enc,
                                 num_class=n_class,
                                 device=device).to(device)
+        classifier = myDataParallel(classifier).to(device)
         optimizer = optim.Adam(classifier.parameters(), lr=_lr, weight_decay=_l2p)
     else:       # Transformer
-        classifier = TransformerClassifier(vocab_size + 1, n_class, hidden_size, d_ff=1024, h=6, N=n_layers, dropout=_drop).to(device)
+        classifier = TransformerClassifier(vocab_size + 1, n_class, hidden_size, d_ff=3072, h=12, N=n_layers, dropout=_drop).to(device)
         # optimizer = NoamOpt(classifier.embedding[0].d_model, 0.001, 200,
         #             torch.optim.Adam(classifier.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
+        classifier = myDataParallel(classifier).to(device)
         optimizer = AdamW(classifier.parameters(), lr=_lr, eps=1e-8)
 
     criterion = nn.CrossEntropyLoss()
-    
-    batch = test_set.next_batch(1)
+
+    batch = test_set.next_batch(6)
     inputs, labels, lens = gettensor(batch, classifier)
     optimizer.zero_grad()
     classifier.eval()
     outputs = classifier(inputs, lens)
     print(outputs)
-    outputs, attn = classifier(inputs, lens, need_attn=True)
-    print(outputs, attn.shape if attn is not None else (0, 0))
+    # outputs, attn = classifier(inputs, lens, need_attn=True)
+    # print(outputs, attn.shape if attn is not None else (0, 0))
     
     trainEpochs(classifier, device, _ep, training_set, valid_set, criterion, opt, saving_path=_save,
                 batch_size=_bs, batch_size_eval=_bs_eval, lrdecay=_lrdecay)

@@ -19,7 +19,6 @@ class TransformerClassifier(nn.Module):
         self.classify = nn.Linear(d_model, num_classes)
         
     def forward(self, x, ls, need_attn=False):
-        x = x.permute([1, 0])    # convert to batch first
         x_mask = (x != self.padding).unsqueeze(-1)
         outputs = self.model(x, x_mask, output_attentions=True)
         outputs, attentions = outputs[0], outputs[-1]
