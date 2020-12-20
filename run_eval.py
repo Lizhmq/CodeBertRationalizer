@@ -1,8 +1,8 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "5,6,7"
 import torch
 import numpy as np
 import pickle
+from sklearn.metrics import precision_recall_fscore_support
 from models.codebert import codebert_mlm, codebert_cls
 from tqdm import tqdm
 
@@ -13,11 +13,11 @@ def load_data(path):
 
 def main():
     # device = torch.device("cuda", 0)
-    device = torch.device("cuda", 1)
+    device = torch.device("cuda", 2)
     cls_model = codebert_cls("./save/java-new/checkpoint-39000-0.9505", device)
     cls_model.model = cls_model.model.to(device)
     cls_model.model.eval()
-    data_path = "../bigJava/datasets/valid.pkl"
+    data_path = "../bigJava/datasets/test.pkl"
     batch_size = 16
     data = load_data(data_path)
 
@@ -29,6 +29,8 @@ def main():
 
     test_num = 0
     test_true = 0
+    predict = []
+    label = []
 
     with torch.no_grad():
         for i in tqdm(range(batch_num)):
@@ -40,8 +42,11 @@ def main():
             predicted = np.argmax(predicted, axis=1)
             test_num += batch_size
             test_true += np.sum(predicted == batch_out)
-
-    print("Acc:", test_true / test_num)
+            predict += list(predicted)
+            label += list(batch_out)
+    precision, recall, _, _ = precision_recall_fscore_support(label, predict)
+    f1 = 2 * (precision * recall) / (precision + recall + 1e-9)     # prevent from zero division
+    print("Precision: %.3f\nRecall: %.3f\nF1: %.3f\n" % (precision, recall, f1))
 
 
 if __name__ == '__main__':

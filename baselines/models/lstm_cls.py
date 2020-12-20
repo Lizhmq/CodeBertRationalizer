@@ -76,7 +76,7 @@ class LSTMClassifier(nn.Module):
         _alpha = torch.stack([alpha for _ in range(self.n_channel)], dim=2)
         logits = self.classify(torch.sum(hidden_states * _alpha, dim=0))
         if need_attn:
-            return logits, alpha
+            return logits, alpha.permute([1, 0])
         else:
             return logits
 

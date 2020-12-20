@@ -14,7 +14,7 @@ class TransformerClassifier(nn.Module):
         super(TransformerClassifier, self).__init__()
         self.padding = 0
         self.config = BertConfig(vocab_size=vocab_size, hidden_size=d_model, num_hidden_layers=N, \
-                        num_attention_heads=h, intermediate_size=d_ff, hidden_dropout_prob=dropout)
+                        num_attention_heads=h, intermediate_size=d_ff, hidden_dropout_prob=dropout, attention_probs_dropout_prob=dropout)
         self.model = BertModel(self.config)
         self.classify = nn.Linear(d_model, num_classes)
         

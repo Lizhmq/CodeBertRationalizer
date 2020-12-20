@@ -95,7 +95,7 @@ class codebert():
         attns = []
         batch_num = (len(input_ids) - 1) // batch_size + 1
         for step in range(batch_num):
-            batch = input_ids[step*batch_size: (step+1)*batch_size]
+            batch = input_ids[step*batch_size:(step+1)*batch_size]
             output = self._run_batch(batch, need_attn)
             if need_attn:
                 output, attn = output

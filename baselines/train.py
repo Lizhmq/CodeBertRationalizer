@@ -11,34 +11,8 @@ import torch
 import torch.nn as nn
 from torch import optim
 import numpy as np
+from utils import gettensor, myDataParallel
 
-
-class myDataParallel(nn.DataParallel):
-    def __getattr__(self, name: str):
-        try:
-            return super().__getattr__(name)
-        except AttributeError:
-            return getattr(self.module, name)
-
- 
-def gettensor(batch, model):
-    ''' Batch second '''
-    device = model.classify.weight.device
-    inputs, labels, lens = batch['x'], batch['y'], batch['l']
-    with_cls = isinstance(model.module, TransformerClassifier)
-    batch_first = with_cls
-    if with_cls:    # add <CLS> to inputs
-        # cls = vocab_size
-        cls = model.model.embeddings.word_embeddings.weight.shape[0] - 1
-        inputs = np.insert(inputs, 0, [cls] * inputs.shape[0], axis=1)
-        lens = lens + 1     # numpy supported
-    inputs, labels, lens = torch.tensor(inputs, dtype=torch.long).to(device), \
-                           torch.tensor(labels, dtype=torch.long).to(device), \
-                           torch.tensor(lens, dtype=torch.long).to(device)
-    if not batch_first:
-        inputs = inputs.permute([1, 0])
-    return inputs, labels, lens
-    
 
 def trainEpochs(classifier, device, epochs, training_set, valid_set, criterion, opt, batch_size=32,
                 batch_size_eval=64, print_each=100, saving_path='./', lrdecay=1):

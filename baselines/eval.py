@@ -10,33 +10,8 @@ import torch
 import torch.nn as nn
 from torch import optim
 import numpy as np
-
- 
-class myDataParallel(nn.DataParallel):
-    def __getattr__(self, name: str):
-        try:
-            return super().__getattr__(name)
-        except AttributeError:
-            return getattr(self.module, name)
-
- 
-def gettensor(batch, model):
-    ''' Batch second '''
-    device = model.classify.weight.device
-    inputs, labels, lens = batch['x'], batch['y'], batch['l']
-    with_cls = isinstance(model.module, TransformerClassifier)
-    batch_first = with_cls
-    if with_cls:    # add <CLS> to inputs
-        # cls = vocab_size
-        cls = model.model.embeddings.word_embeddings.weight.shape[0] - 1
-        inputs = np.insert(inputs, 0, [cls] * inputs.shape[0], axis=1)
-        lens = lens + 1     # numpy supported
-    inputs, labels, lens = torch.tensor(inputs, dtype=torch.long).to(device), \
-                           torch.tensor(labels, dtype=torch.long).to(device), \
-                           torch.tensor(lens, dtype=torch.long).to(device)
-    if not batch_first:
-        inputs = inputs.permute([1, 0])
-    return inputs, labels, lens
+from utils import gettensor, myDataParallel
+from sklearn.metrics import precision_recall_fscore_support
 
                 
 def evaluate(classifier, device, dataset, batch_size=128):
@@ -45,6 +20,8 @@ def evaluate(classifier, device, dataset, batch_size=128):
     testnum = 0
     testcorrect = 0
     dataset.reset_epoch()
+    predict = []
+    label = []
     while True:
         batch = dataset.next_batch(batch_size)
         if batch['new_epoch']:
@@ -52,10 +29,16 @@ def evaluate(classifier, device, dataset, batch_size=128):
         inputs, labels, lens = gettensor(batch, classifier)
         with torch.no_grad():
             outputs = classifier(inputs, lens)        
-            res = torch.argmax(outputs, dim=1) == labels
+            outputs = torch.argmax(outputs, dim=1)
+            predict += list(outputs)
+            label += labels
+            res = outputs == labels
             testcorrect += torch.sum(res)
             testnum += len(labels)
-    print('eval_acc:  %.2f%%' % (float(testcorrect) * 100.0 / testnum))
+    precision, recall, _, _ = precision_recall_fscore_support(label, predict)
+    f1 = 2 * (precision * recall) / (precision + recall + 1e-9)     # prevent from zero division
+    print("Evaluation:\n\tPrecision: %.3f\n\tRecall: %.3f\n\tF1: %.3f\n" % (precision, recall, f1))
+    # print('eval_acc:  %.2f%%' % (float(testcorrect) * 100.0 / testnum))
 
 
 if __name__ == "__main__":
