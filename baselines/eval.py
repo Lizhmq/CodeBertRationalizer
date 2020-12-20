@@ -4,22 +4,38 @@ import pickle
 
 from dataset import Java, Dataset
 from models.lstm_cls import LSTMEncoder, LSTMClassifier
-from models.transformer_cls import TransformerClassifier
-from models.transformer import NoamOpt, get_std_opt
+from models.Transformer import TransformerClassifier
 
 import torch
 import torch.nn as nn
 from torch import optim
-import numpy
+import numpy as np
 
  
-def gettensor(batch, device):
+class myDataParallel(nn.DataParallel):
+    def __getattr__(self, name: str):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
+
+ 
+def gettensor(batch, model):
     ''' Batch second '''
+    device = model.classify.weight.device
     inputs, labels, lens = batch['x'], batch['y'], batch['l']
+    with_cls = isinstance(model.module, TransformerClassifier)
+    batch_first = with_cls
+    if with_cls:    # add <CLS> to inputs
+        # cls = vocab_size
+        cls = model.model.embeddings.word_embeddings.weight.shape[0] - 1
+        inputs = np.insert(inputs, 0, [cls] * inputs.shape[0], axis=1)
+        lens = lens + 1     # numpy supported
     inputs, labels, lens = torch.tensor(inputs, dtype=torch.long).to(device), \
                            torch.tensor(labels, dtype=torch.long).to(device), \
                            torch.tensor(lens, dtype=torch.long).to(device)
-    inputs = inputs.permute([1, 0])
+    if not batch_first:
+        inputs = inputs.permute([1, 0])
     return inputs, labels, lens
 
                 
@@ -33,7 +49,7 @@ def evaluate(classifier, device, dataset, batch_size=128):
         batch = dataset.next_batch(batch_size)
         if batch['new_epoch']:
             break
-        inputs, labels, lens = gettensor(batch, device)
+        inputs, labels, lens = gettensor(batch, classifier)
         with torch.no_grad():
             outputs = classifier(inputs, lens)        
             res = torch.argmax(outputs, dim=1) == labels
@@ -61,17 +77,17 @@ if __name__ == "__main__":
     _load_dataset = opt.load_dataset
     _bs_eval = opt.bs_eval
 
-    if int(opt.gpu) < 0:
+    if opt.gpu == "-1":
         device = torch.device("cpu")
     else:
         device = torch.device("cuda")
-        os.environ["CUDA_VISIBLE_DEVICES"] = opt.gpu
+        # os.environ["CUDA_VISIBLE_DEVICES"] = opt.gpu
 
     _model = opt.model
     vocab_size = 30000
     embedding_size = 512
-    hidden_size = 600
-    n_layers = 2
+    hidden_size = 384
+    n_layers = 6
     n_channel = -1
     n_class_dict = {"JAVA": 2}
     n_class = n_class_dict[opt.data.upper()]
@@ -104,9 +120,11 @@ if __name__ == "__main__":
                                 encoder=enc,
                                 num_class=n_class,
                                 device=device).to(device)
+        classifier = myDataParallel(classifier).to(device)
         classifier.load_state_dict(torch.load(_save))
     else:       # Transformer
-        classifier = TransformerClassifier(vocab_size, n_class, hidden_size, d_ff=1024, h=8, N=n_layers, dropout=0).to(device)
+        classifier = TransformerClassifier(vocab_size + 1, n_class, hidden_size, d_ff=1024, h=6, N=n_layers, dropout=0).to(device)
+        classifier = myDataParallel(classifier).to(device)
         classifier.load_state_dict(torch.load(_save))
 
     classifier.eval()

@@ -43,7 +43,7 @@ class LSTMClassifier(nn.Module):
         if verbose:
             print('Total param size: {}'.format(size))
         if device is None:
-            self.device = torch.device("cuda")
+            self.device = torch.device("cpu")
         else:
             self.device = device
             

@@ -19,12 +19,13 @@ class TransformerClassifier(nn.Module):
         self.classify = nn.Linear(d_model, num_classes)
         
     def forward(self, x, ls, need_attn=False):
-        x_mask = (x != self.padding).unsqueeze(-1)
+        x_mask = (x != self.padding).unsqueeze(-2)
         outputs = self.model(x, x_mask, output_attentions=True)
         outputs, attentions = outputs[0], outputs[-1]
         outputs = outputs[:, 0, :]
-        attentions = attentions[-1]
-        attentions = torch.mean(attentions, dim=1)[:, 0, :]
+        if need_attn:
+            attentions = attentions[-1]
+            attentions = torch.mean(attentions, dim=1)[:, 0, :]
 
         logits = self.classify(outputs)
         if need_attn:

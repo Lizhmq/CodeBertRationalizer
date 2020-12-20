@@ -81,8 +81,6 @@ def trainEpochs(classifier, device, epochs, training_set, valid_set, criterion, 
         i += 1
 
 def adjust_learning_rate(optimizer, decay_rate=0.8):
-    if type(optimizer) == NoamOpt:      # adjust lr only for simple Adam optimizer
-        return
     for param_group in optimizer.param_groups:
         param_group['lr'] = param_group['lr'] * decay_rate
                 
