@@ -45,6 +45,7 @@ def main():
             predict += list(predicted)
             label += list(batch_out)
     precision, recall, _, _ = precision_recall_fscore_support(label, predict)
+    precision, recall = precision[1], recall[1]
     f1 = 2 * (precision * recall) / (precision + recall + 1e-9)     # prevent from zero division
     print("Precision: %.3f\nRecall: %.3f\nF1: %.3f\n" % (precision, recall, f1))
 

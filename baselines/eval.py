@@ -31,11 +31,12 @@ def evaluate(classifier, device, dataset, batch_size=128):
             outputs = classifier(inputs, lens)        
             outputs = torch.argmax(outputs, dim=1)
             predict += list(outputs)
-            label += labels
+            label += list(labels)
             res = outputs == labels
             testcorrect += torch.sum(res)
             testnum += len(labels)
     precision, recall, _, _ = precision_recall_fscore_support(label, predict)
+    precision, recall = precision[1], recall[1]
     f1 = 2 * (precision * recall) / (precision + recall + 1e-9)     # prevent from zero division
     print("Evaluation:\n\tPrecision: %.3f\n\tRecall: %.3f\n\tF1: %.3f\n" % (precision, recall, f1))
     # print('eval_acc:  %.2f%%' % (float(testcorrect) * 100.0 / testnum))
@@ -69,8 +70,8 @@ if __name__ == "__main__":
     _model = opt.model
     vocab_size = 30000
     embedding_size = 512
-    hidden_size = 384
-    n_layers = 6
+    hidden_size = 600
+    n_layers = 2
     n_channel = -1
     n_class_dict = {"JAVA": 2}
     n_class = n_class_dict[opt.data.upper()]
@@ -103,11 +104,11 @@ if __name__ == "__main__":
                                 encoder=enc,
                                 num_class=n_class,
                                 device=device).to(device)
-        classifier = myDataParallel(classifier).to(device)
         classifier.load_state_dict(torch.load(_save))
+        # classifier = myDataParallel(classifier).to(device)
     else:       # Transformer
         classifier = TransformerClassifier(vocab_size + 1, n_class, hidden_size, d_ff=1024, h=6, N=n_layers, dropout=0).to(device)
-        classifier = myDataParallel(classifier).to(device)
+        # classifier = myDataParallel(classifier).to(device)
         classifier.load_state_dict(torch.load(_save))
 
     classifier.eval()
