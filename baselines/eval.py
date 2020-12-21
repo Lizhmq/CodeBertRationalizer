@@ -17,8 +17,6 @@ from sklearn.metrics import precision_recall_fscore_support
 def evaluate(classifier, device, dataset, batch_size=128):
 
     classifier.eval()
-    testnum = 0
-    testcorrect = 0
     dataset.reset_epoch()
     predict = []
     label = []
@@ -29,17 +27,14 @@ def evaluate(classifier, device, dataset, batch_size=128):
         inputs, labels, lens = gettensor(batch, classifier)
         with torch.no_grad():
             outputs = classifier(inputs, lens)        
-            outputs = torch.argmax(outputs, dim=1)
+            outputs = torch.argmax(outputs, dim=1).cpu().data.numpy()
             predict += list(outputs)
-            label += list(labels)
-            res = outputs == labels
-            testcorrect += torch.sum(res)
-            testnum += len(labels)
+            label += list(labels.cpu().data.numpy())
+
     precision, recall, _, _ = precision_recall_fscore_support(label, predict)
     precision, recall = precision[1], recall[1]
     f1 = 2 * (precision * recall) / (precision + recall + 1e-9)     # prevent from zero division
     print("Evaluation:\n\tPrecision: %.3f\n\tRecall: %.3f\n\tF1: %.3f\n" % (precision, recall, f1))
-    # print('eval_acc:  %.2f%%' % (float(testcorrect) * 100.0 / testnum))
 
 
 if __name__ == "__main__":
@@ -104,11 +99,13 @@ if __name__ == "__main__":
                                 encoder=enc,
                                 num_class=n_class,
                                 device=device).to(device)
-        classifier.load_state_dict(torch.load(_save))
-        # classifier = myDataParallel(classifier).to(device)
     else:       # Transformer
         classifier = TransformerClassifier(vocab_size + 1, n_class, hidden_size, d_ff=1024, h=6, N=n_layers, dropout=0).to(device)
         # classifier = myDataParallel(classifier).to(device)
+    try:
+        classifier.load_state_dict(torch.load(_save))
+    except:
+        classifier = myDataParallel(classifier).to(device)
         classifier.load_state_dict(torch.load(_save))
 
     classifier.eval()

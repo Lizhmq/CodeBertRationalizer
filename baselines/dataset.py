@@ -6,7 +6,7 @@ import copy
 
 class Dataset(object):
     
-    def __init__(self, xs=[], ys=[], raws=None, ids=None, pos=None, span=None,
+    def __init__(self, xs=[], ys=[], raws=None, norms=None, ids=None, pos=None, span=None,
                  idx2txt=[], txt2idx={}, max_len=400, vocab_size=30000, dtype=None):
         
         self.__dtype = dtype
@@ -16,6 +16,7 @@ class Dataset(object):
         self.__max_len = max_len
         self.__xs = []
         self.__raws = []
+        self.__norms = []
         self.__ys = []
         self.__ls = []
         self.__ids = []
@@ -26,6 +27,8 @@ class Dataset(object):
             raws = [None for _ in ys]
         else:
             assert len(xs) == len(ys) and len(ys) == len(raws)
+        if norms is None:
+            norms = [None for _ in ys]
         if pos is None:
             pos = [None for _ in ys]
         else:
@@ -38,8 +41,9 @@ class Dataset(object):
             ids = list(range(len(xs)))
         else:
             assert len(xs) == len(ids)
-        for x, y, r, i, p, sp in zip(xs, ys, raws, ids, pos, span):
+        for x, y, r, n, i, p, sp in zip(xs, ys, raws, norms, ids, pos, span):
             self.__raws.append(r)
+            self.__norms.append(n)
             self.__ys.append(y)
             self.__ids.append(i)
             self.__pos.append(p)
@@ -63,7 +67,8 @@ class Dataset(object):
         self.__size = len(self.__raws)
         
         assert self.__size == len(self.__raws)      \
-            and len(self.__raws) == len(self.__pos) \
+            and len(self.__raws) == len(self.__norms) \
+            and len(self.__norms) == len(self.__pos) \
             and len(self.__pos) == len(self.__xs)  \
             and len(self.__xs) == len(self.__ys) \
             and len(self.__ys) == len(self.__ls) \
@@ -79,7 +84,7 @@ class Dataset(object):
         
     def next_batch(self, batch_size=32):
         
-        batch = {"x": [], "y": [], "l": [], "raw": [], "id": [], "pos": [],
+        batch = {"x": [], "y": [], "l": [], "raw": [], "norm": [], "id": [], "pos": [],
                  "span": [], "new_epoch": False}
         assert batch_size <= self.__size
         if len(self.__epoch) < batch_size:
@@ -94,6 +99,9 @@ class Dataset(object):
         for i in idxs:
             batch['raw'].append(self.__raws[i])
         batch['raw'] = copy.deepcopy(batch['raw'])
+        for i in idxs:
+            batch['norm'].append(self.__norms[i])
+        batch['norm'] = copy.deepcopy(batch['norm'])
         for i in idxs:
             batch['pos'].append(self.__pos[i])
         batch['pos'] = copy.deepcopy(batch['pos'])
@@ -150,15 +158,16 @@ class Java(object):
     
 
     def build_dataset(self, data):
-        raw, x, y, ids, pos, span = [], [], [], [], [], []
+        raw, norm, x, y, ids, pos, span = [], [], [], [], [], [], []
         for i in range(len(data["label"])):
             raw.append(data["raw"][i])
-            x.append(self.raw2idxs(raw[-1]))
+            norm.append(data["norm"][i])
+            x.append(self.raw2idxs(norm[-1]))
             y.append(data["label"][i])
             ids.append(i)
             pos.append(data["idx"][i])
             span.append(data["span"][i])
-        return Dataset(xs=x, ys=y, raws=raw, ids=ids, pos=pos, span=span,
+        return Dataset(xs=x, ys=y, raws=raw, norms=norm, ids=ids, pos=pos, span=span,
                         idx2txt=self.__idx2txt,
                         txt2idx=self.__txt2idx,
                         max_len=self.__max_len,
