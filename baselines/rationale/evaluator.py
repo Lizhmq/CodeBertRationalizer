@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 from tqdm import tqdm
 from copy import deepcopy as cp
+from utils import gettensor, autopad, get_idx_func
 
 
 class Evaluator(object):
@@ -26,7 +27,14 @@ class Evaluator(object):
             idx_in = self.dataset["idx"][i*batch_size:(i+1)*batch_size]
             size = len(batch_in)
 
-            scores = self.scorer(batch_in)
+            batch_in, ls = autopad(batch_in)
+            idx_func = get_idx_func()
+            batch_in = list(map(idx_func, batch_in))
+            y = [1] * len(ls)
+            dic = {"x": batch_in, "y": y, "l": ls}
+            inputs, labels, lens = gettensor(dic, self.scorer.model)
+
+            scores = self.scorer(inputs, lens)
             rationales = self.extractor(scores)
 
             test_num += size
@@ -36,66 +44,6 @@ class Evaluator(object):
                 hitexp += dic["Hitexp"]
                 iou += dic["IOU"]
             # break
-        hit = hit / test_num
-        hitexp = hitexp / test_num
-        iou = iou / test_num
-
-        return {"Hit": hit, "Hitexp": hitexp, "IOU": iou}
-
-    def metrics(self, oracle_span, oracle_idx, rationale):
-        output_dict = {}
-        output_dict["Hit"] = False
-        output_dict["Hitexp"] = False
-        output_dict["IOU"] = 0
-        
-        rationale = [k["span"] for k in rationale]
-        oracle_set = set().union(range(*oracle_span))
-        assert(oracle_idx in oracle_set)
-        all_set = cp(oracle_set)
-        inters_set = set()
-        hit = False
-        hitexp = False
-        for span in rationale:
-            new_set = set().union(range(*span))
-            all_set = all_set.union(new_set)
-            cur_inters = oracle_set.intersection(new_set)
-            inters_set = inters_set.union(cur_inters)
-            if oracle_idx in new_set:
-                hit = True
-            if len(cur_inters) > 0:
-                hitexp = True
-        
-        output_dict["Hit"] = hit
-        output_dict["Hitexp"] = hitexp
-        output_dict["IOU"] = len(inters_set) / len(all_set)
-        
-        return output_dict
-
-
-class RandomEvaluator(object):
-
-    def __init__(self, strategy, dataset):
-        assert(strategy.lower() in ["topk", "contiguous"])
-        self.strategy = strategy.lower()
-        self.dataset = dataset
-
-
-    def evaluate(self):
-        test_num = 0
-        ls = len(self.dataset["norm"])
-        
-        hit, hitexp, iou = 0, 0, 0.0
-        
-        for i in tqdm(range(ls)):
-            curl = len(self.dataset["norm"][i])
-            if self.strategy == "topk":
-                
-
-                dic = self.metrics(span_in[j], idx_in[j], rationales[j])
-                hit += dic["Hit"]
-                hitexp += dic["Hitexp"]
-                iou += dic["IOU"]
-
         hit = hit / test_num
         hitexp = hitexp / test_num
         iou = iou / test_num

@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import pickle
 from models.Transformer import TransformerClassifier
+from dataset import Dataset, Java
 
 
 class myDataParallel(nn.DataParallel):
@@ -10,6 +12,20 @@ class myDataParallel(nn.DataParallel):
             return super().__getattr__(name)
         except AttributeError:
             return getattr(self.module, name)
+
+
+def get_idx_func(java_path="../../bigJava/datasets/Java.pkl"):
+    with open(java_path, "rb") as f:
+        data = pickle.load(f)
+    return data.raw2idxs
+
+
+def autopad(inputs, ls=None):
+    ls = list(map(len, inputs))
+    maxl = max(ls)
+    for i in range(len(inputs)):
+        inputs[i] += [0] * (maxl - ls[i])
+    return inputs, ls
 
 
 def gettensor(batch, model):

@@ -1,15 +1,14 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "3,4"
 import torch
 import numpy as np
 import pickle
-from models.codebert import codebert_mlm, codebert_cls
+from models.lstm_cls import LSTMEncoder, LSTMClassifier
 from tqdm import tqdm
-from scorer.base_scorer import SaliencyScorer
-from scorer.gradient_scorer import GradientSaliency
-from thretholder.contiguous import ContiguousThresholder
-from thretholder.topk import TopKThresholder
-from scorer.evaluator import Evaluator
+from rationale.scorer import SaliencyScorer
+from rationale.contiguous import ContiguousThresholder
+from rationale.topk import TopKThresholder
+from rationale.evaluator import Evaluator
+from dataset import Dataset, Java
 
 
 def load_data(path):
@@ -18,18 +17,30 @@ def load_data(path):
     return data
 
 def main():
-    # device = torch.device("cuda", 0)
     device = torch.device("cuda", 0)
-    cls_model = codebert_cls("./save/java0/checkpoint-16000-0.9311", device)
-    cls_model.model = cls_model.model.to(device)
-    cls_model.model.eval()
 
-    scorer1 = SaliencyScorer(cls_model)
-    scorer2 = GradientSaliency(cls_model)
+    vocab_size = 30000
+    embedding_size = 512
+    hidden_size = 600
+    n_layers = 2
+    n_channel = -1
+    n_class_dict = {"JAVA": 2}
+    n_class = n_class_dict["JAVA"]
+    max_len = 400
+    bidirection = True
+
+    enc = LSTMEncoder(embedding_dim=embedding_size, hidden_dim=hidden_size,
+                    n_layers=n_layers, drop_prob=0, brnn=bidirection)
+    classifier = LSTMClassifier(vocab_size=vocab_size, encoder=enc,
+                    num_class=n_class, device=device).to(device)
+    classifier.eval()
+    # classifier = myDataParallel(classifier).to(device)
+
+    scorer1 = SaliencyScorer(classifier)
     extractor1 = TopKThresholder(0.05)
     extractor2 = ContiguousThresholder(0.05)
 
-    data_path = "../bigJava/datasets/valid_tp.pkl"
+    data_path = "../../bigJava/datasets/test_tp_lstm.pkl"
     
     data = load_data(data_path)
 
@@ -39,14 +50,6 @@ def main():
 
     print("Attention - Contiguous:")
     evaluator = Evaluator(scorer1, extractor2, data)
-    print(evaluator.evaluate())
-    
-    print("Gradient - TopK:")
-    evaluator = Evaluator(scorer2, extractor1, data)
-    print(evaluator.evaluate())
-
-    print("Gradient - Contiguous:")
-    evaluator = Evaluator(scorer2, extractor2, data)
     print(evaluator.evaluate())
 
 

@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from utils import gettensor
-from models.Transformer import TransformerClassifier
 
 
 
@@ -13,7 +12,6 @@ class SaliencyScorer(nn.Module):
         self.model = model
         self.model.eval()
 
-    def forward(self, batch):
-        inputs, labels, ls = gettensor(batch, self.model)
+    def forward(self, inputs, ls):
         _, attentions = self.model(inputs, ls, need_attn=True)
         return attentions.cpu().data.numpy()

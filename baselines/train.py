@@ -120,8 +120,8 @@ if __name__ == "__main__":
     _model = opt.model
     vocab_size = 30000
     embedding_size = 512
-    hidden_size = 768
-    n_layers = 12
+    hidden_size = 600
+    n_layers = 2
     n_channel = -1
     n_class_dict = {"JAVA": 2}
     n_class = n_class_dict[opt.data.upper()]
@@ -154,7 +154,7 @@ if __name__ == "__main__":
                                 encoder=enc,
                                 num_class=n_class,
                                 device=device).to(device)
-        classifier = myDataParallel(classifier).to(device)
+        # classifier = myDataParallel(classifier).to(device)
         optimizer = optim.Adam(classifier.parameters(), lr=_lr, weight_decay=_l2p)
     else:       # Transformer
         classifier = TransformerClassifier(vocab_size + 1, n_class, hidden_size, d_ff=3072, h=12, N=n_layers, dropout=_drop).to(device)
