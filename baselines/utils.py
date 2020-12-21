@@ -14,17 +14,18 @@ class myDataParallel(nn.DataParallel):
             return getattr(self.module, name)
 
 
-def get_idx_func(java_path="../../bigJava/datasets/Java.pkl"):
+def get_java(java_path="../../bigJava/datasets/Java.pkl"):
     with open(java_path, "rb") as f:
         data = pickle.load(f)
-    return data.raw2idxs
+    return data
 
 
-def autopad(inputs, ls=None):
+def autopad(inputs, ls=None, maxlen=100):
     ls = list(map(len, inputs))
     maxl = max(ls)
+    maxlen = max(maxl, maxlen)
     for i in range(len(inputs)):
-        inputs[i] += [0] * (maxl - ls[i])
+        inputs[i] += ["<pad>"] * (maxlen - ls[i])
     return inputs, ls
 
 

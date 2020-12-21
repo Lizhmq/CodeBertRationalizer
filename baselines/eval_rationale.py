@@ -18,7 +18,7 @@ def load_data(path):
 
 def main():
     device = torch.device("cuda", 0)
-
+    model_path = "./save/lstm/11.pt"
     vocab_size = 30000
     embedding_size = 512
     hidden_size = 600
@@ -33,12 +33,13 @@ def main():
                     n_layers=n_layers, drop_prob=0, brnn=bidirection)
     classifier = LSTMClassifier(vocab_size=vocab_size, encoder=enc,
                     num_class=n_class, device=device).to(device)
+    classifier.load_state_dict(torch.load(model_path))
     classifier.eval()
     # classifier = myDataParallel(classifier).to(device)
 
     scorer1 = SaliencyScorer(classifier)
-    extractor1 = TopKThresholder(0.05)
-    extractor2 = ContiguousThresholder(0.05)
+    extractor1 = TopKThresholder(0.01)
+    extractor2 = ContiguousThresholder(0.01)
 
     data_path = "../../bigJava/datasets/test_tp_lstm.pkl"
     

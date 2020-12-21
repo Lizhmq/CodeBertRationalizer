@@ -6,10 +6,10 @@ import pickle
 from tqdm import tqdm
 
 def main():
-    gpu_num = 2
-    model_path = "./save/java0/checkpoint-16000-0.9311"
-    data_path = '../bigJava/datasets/valid.pkl'
-    out_path = '../bigJava/datasets/valid_tp.pkl'
+    gpu_num = 0
+    model_path = "./save/java-new/checkpoint-39000-0.9505"
+    data_path = '../bigJava/datasets/test.pkl'
+    out_path = '../bigJava/datasets/test_tp_ts.pkl'
 
     with open(data_path, 'rb') as f:
         test_data = pickle.load(f)
@@ -22,6 +22,7 @@ def main():
 
     raws, norms, idxs, spans, labels = [], [], [], [], []
     N = len(test_data["norm"])
+    # for i in tqdm(range(10)):
     for i in tqdm(range(N)):
         inputs = [test_data['norm'][i]]
         label = test_data['label'][i]

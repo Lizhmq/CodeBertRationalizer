@@ -14,7 +14,7 @@ class ContiguousThresholder(Thresholder):
         """
         attentions is normalized. (B * L), on cpu
         """
-        lens = (attentions != 0.0).sum(axis=1)
+        lens = (attentions != 0.0).sum(axis=1)      # may be bug
         cumsumed_attention = attentions.cumsum(-1)
         rationales = []
         for b in range(cumsumed_attention.shape[0]):

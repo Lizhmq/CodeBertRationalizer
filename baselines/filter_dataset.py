@@ -9,7 +9,7 @@ from dataset import Dataset, Java
 
 
 def main():
-    gpu_num = 2
+    gpu_num = 0
     model_path = "./save/lstm/11.pt"
     data_path = '../../bigJava/datasets/Java.pkl'
     out_path = '../../bigJava/datasets/test_tp_lstm.pkl'
@@ -39,17 +39,23 @@ def main():
                     n_layers=n_layers, drop_prob=0, brnn=bidirection)
     classifier = LSTMClassifier(vocab_size=vocab_size, encoder=enc,
                     num_class=n_class, device=device).to(device)
+    classifier.load_state_dict(torch.load(model_path))
+    classifier.eval()
     # classifier = myDataParallel(classifier).to(device)
 
+    example_num = 0
+    batch = test_set.next_batch(1)
+    while not batch["new_epoch"]:
+        example_num += 1
+        batch = test_set.next_batch(1)
 
     raws, norms, idxs, spans, labels = [], [], [], [], []
-    while True:
+    for i in tqdm(range(example_num)):
+    # for i in tqdm(range(5)):
         batch = test_set.next_batch(1)
-        if batch["new_epoch"]:
-            break
         inputs, labs, lens = gettensor(batch, classifier)
-        output = classifier(inputs, lens)
-        predicted_label = np.argmax(classifier(inputs, lens).cpu().data.numpy(), 1)
+        output = classifier(inputs, lens).cpu().data.numpy()
+        predicted_label = np.argmax(output, 1)
         if labs.cpu().data[0] == predicted_label[0] and predicted_label[0] == 1:
             raws.append(batch["raw"][0])
             norms.append(batch["norm"][0])

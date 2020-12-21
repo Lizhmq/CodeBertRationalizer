@@ -3,7 +3,7 @@ import torch.nn as nn
 import math
 from tqdm import tqdm
 from copy import deepcopy as cp
-from utils import gettensor, autopad, get_idx_func
+from utils import gettensor, autopad, get_java
 
 
 class Evaluator(object):
@@ -15,20 +15,24 @@ class Evaluator(object):
 
     def evaluate(self):
         test_num = 0
-        batch_size = 8
+        batch_size = 32
         ls = len(self.dataset["norm"])
         batch_num = math.ceil(ls / batch_size)
         
         hit, hitexp, iou = 0, 0, 0.0
         
+        java = get_java()
+        txt2idx = java.get_txt2idx()
+        vocab_size = java.get_vocab_size()
+        idx_func = lambda x: list([txt2idx["<unk>"] if tok >= vocab_size else tok for tok in java.raw2idxs(x) ])
+
         for i in tqdm(range(batch_num)):
             batch_in = self.dataset["norm"][i*batch_size:(i+1)*batch_size]
             span_in = self.dataset["span"][i*batch_size:(i+1)*batch_size]
             idx_in = self.dataset["idx"][i*batch_size:(i+1)*batch_size]
             size = len(batch_in)
 
-            batch_in, ls = autopad(batch_in)
-            idx_func = get_idx_func()
+            batch_in, ls = autopad(batch_in, maxlen=100)
             batch_in = list(map(idx_func, batch_in))
             y = [1] * len(ls)
             dic = {"x": batch_in, "y": y, "l": ls}

@@ -10,3 +10,18 @@ Gradient - TopK:
 Gradient - Contiguous:
 {'Hit': 0.49267230550205177, 'Hitexp': 0.5935013817938196, 'IOU': 0.2628244574793001}
 ```
+
+
+```txt
+LSTM-0.05:
+	Attention - TopK:
+		{'Hit': 0.9753876551694515, 'Hitexp': 0.998067093337915, 'IOU': 0.28311479731676475}
+	Attention - Congiguous:
+		{'Hit': 0.9732829345818479, 'Hitexp': 0.9756883295391091, 'IOU': 0.25039371379659153}
+
+LSTM-0.01:
+	Attention - TopK:
+		{'Hit': 0.6659507753103389, 'Hitexp': 0.9765473991667024, 'IOU': 0.29708484685320663}
+	Attention - Contiguous:
+
+```
