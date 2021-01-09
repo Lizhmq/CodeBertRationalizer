@@ -11,7 +11,7 @@ from transformers import RobertaConfig, RobertaForSequenceClassification, Robert
 logger = logging.getLogger(__name__)
 
 class codebert():
-    def __init__(self, model_type, model_path, device):
+    def __init__(self, model_type, model_path, device, attn_head=0):
         self.model_type = model_type
         self.tokenizer = Tokenizer.from_pretrained(model_path)
         self.tokenizer.__class__ = Tokenizer         # not perfect convert
@@ -21,6 +21,7 @@ class codebert():
             self.model = RobertaForSequenceClassification.from_pretrained(model_path, num_labels=2)
         self.block_size = 512
         self.device = device
+        self.attn_head = attn_head
 
     def tokenize(self, inputs, cut_and_pad=False, ret_id=False):
         rets = []
@@ -109,7 +110,12 @@ class codebert():
 
         output_dict = {}
         if need_attn:
-            attentions = attns[:, :, 0, :].mean(1)  # get mean on multi-heads
+            index = self.attn_head
+            if index < 0:
+                attentions = attns[:, :, 0, :].mean(1)  # get mean on multi-heads
+            else:
+                attentions = attns[:, index, 0, :]
+            # attentions = torch.max(attns[:, :, 0, :], 1)[0]
         else:
             attentions = None
         output_dict["logits"] = logits
@@ -128,6 +134,6 @@ class codebert_mlm(codebert):
         super().__init__("mlm", model_path, device)
 
 class codebert_cls(codebert):
-    def __init__(self, model_path, device):
-        super().__init__("cls", model_path, device)
+    def __init__(self, model_path, device, attn_head=0):
+        super().__init__("cls", model_path, device, attn_head=attn_head)
 

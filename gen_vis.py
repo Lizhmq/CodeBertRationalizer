@@ -1,4 +1,5 @@
 from os import name
+from numpy.core.fromnumeric import _argpartition_dispatcher
 import torch
 import numpy as np
 from models.codebert import codebert_cls
@@ -17,7 +18,7 @@ def main():
     model_path = "./save/java-new/checkpoint-39000-0.9505"
     data_path = '../bigJava/datasets/test_tp_ts.pkl'
     output_path = './pics/'
-    output_name = 'grad'
+    output_name = 'attn0'
     if not os.path.exists(output_path):
         os.mkdir(output_path)
     output_path = os.path.join(output_path, output_name)
@@ -30,11 +31,11 @@ def main():
         device = torch.device("cpu")        # cpu supported only now
     else:
         device = torch.device("cuda", gpu_num)
-    cls_model = codebert_cls(model_path, device)
+    cls_model = codebert_cls(model_path, device, attn_head=0)
     cls_model.model = cls_model.model.to(device)
     cls_model.model.eval()
-    scorer = GradientSaliency(cls_model)
-    # scorer = SaliencyScorer(cls_model)
+    # scorer = GradientSaliency(cls_model)
+    scorer = SaliencyScorer(cls_model)
     # thresholder = ContiguousThresholder(0.1)
     thresholder = TopKThresholder(0.1)
     evaluator = Evaluator(scorer, thresholder, None)
