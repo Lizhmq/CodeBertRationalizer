@@ -17,7 +17,7 @@ class Evaluator(object):
         batch_size = 8
         ls = len(self.dataset["norm"])
         batch_num = math.ceil(ls / batch_size)
-        
+        batch_num = min(100, batch_num)
         hit, hitexp, iou = 0, 0, 0.0
         
         for i in tqdm(range(batch_num)):
