@@ -147,9 +147,11 @@ class ClassifierDataset(Dataset):
             datas2 = pickle.load(open(datafile2, "rb"))
             labels = datas["label"]
             inputs = datas["norm"]
+            # inputs = datas["raw"]
 
             labels2 = datas2["label"]
             inputs2 = datas2["norm"]
+            # inputs2 = datas2["raw"]
 
             # train_len = len(inputs)
             # split_l = int(train_len * split_rate)

@@ -12,19 +12,25 @@ def load_data(path):
     return data
 
 def main():
-    # device = torch.device("cuda", 0)
     device = torch.device("cuda", 2)
-    cls_model = codebert_cls("./save/java-new/checkpoint-39000-0.9505", device)
+    # cls_model = codebert_cls("./save/calls-128-64/checkpoint-44000-0.9401", device)
+    # cls_model = codebert_cls("./save/varmis-512/checkpoint-36000-0.9514", device, attn_head=-1)
+    # cls_model = codebert_cls("./save/java0/checkpoint-16000-0.9311", device, attn_head=-1)
+    # cls_model = codebert_cls("./save/python-op2/checkpoint-38000-0.9305", device, attn_head=-1)
+    cls_model = codebert_cls("./save/python-op2/checkpoint-12000-0.9395", device, attn_head=-1)
     cls_model.model = cls_model.model.to(device)
     cls_model.model.eval()
-    data_path = "../bigJava/datasets/test.pkl"
-    batch_size = 16
+    # data_path = "../DeepBugs/data/pkl/calls/test.pkl"
+    data_path = "../CuBert/wrong_op/test.pkl"
+    # data_path = "../great/test.pkl"
+    # data_path = "../bigJava/datasets/test.pkl"
+    batch_size = 12
     data = load_data(data_path)
 
 
     test_size = len(data["norm"])
     import math
-    batch_num = math.ceil(test_size / batch_size)
+    batch_num = math.ceil(test_size / batch_size) // 10
 
 
     test_num = 0
@@ -36,9 +42,9 @@ def main():
         for i in tqdm(range(batch_num)):
             batch_in = data["norm"][i * batch_size:(i + 1) * batch_size]
             batch_in = [" ".join(tokens) for tokens in batch_in]
-            batch_size = len(batch_in)
             batch_out = data["label"][i * batch_size:(i + 1) * batch_size]
-            predicted = cls_model.run(batch_in).cpu().data.numpy()
+            batch_size = len(batch_in)
+            predicted = cls_model.run(batch_in, batch_size=batch_size).cpu().data.numpy()
             predicted = np.argmax(predicted, axis=1)
             test_num += batch_size
             test_true += np.sum(predicted == batch_out)
@@ -47,8 +53,9 @@ def main():
     precision, recall, _, _ = precision_recall_fscore_support(label, predict)
     precision, recall = precision[1], recall[1]
     f1 = 2 * (precision * recall) / (precision + recall + 1e-9)     # prevent from zero division
-    print("Precision: %.3f\nRecall: %.3f\nF1: %.3f\n" % (precision, recall, f1))
-
+    print("Precision: %.4f\nRecall: %.4f\nF1: %.4f\n" % (precision, recall, f1))
+    print("Accuracy: %.4f\n" % (test_true / test_num))
+    print("Test true: %d, Test num: %d" % (test_true, test_num))
 
 if __name__ == '__main__':
     main()
