@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import math
+import random
 from tqdm import tqdm
 from copy import deepcopy as cp
 from utils import gettensor, autopad, get_java
@@ -12,16 +13,24 @@ class Evaluator(object):
         self.scorer = scorer
         self.dataset = dataset
         self.extractor = extractor
+        self.java = get_java()
+
+    def shuffle(self):
+        idxs = list(range(len(self.dataset["norm"])))
+        random.shuffle(idxs)
+        self.dataset["norm"] = [self.dataset["norm"][i] for i in idxs]
+        self.dataset["span"] = [self.dataset["span"][i] for i in idxs]
+        self.dataset["idx"] = [self.dataset["idx"][i] for i in idxs]
+        
 
     def evaluate(self):
         test_num = 0
         batch_size = 32
         ls = len(self.dataset["norm"])
-        batch_num = math.ceil(ls / batch_size)
-        
+        batch_num = math.ceil(ls / batch_size) // 7
         hit, hitexp, iou = 0, 0, 0.0
         
-        java = get_java()
+        java = self.java
         txt2idx = java.get_txt2idx()
         vocab_size = java.get_vocab_size()
         idx_func = lambda x: list([txt2idx["<unk>"] if tok >= vocab_size else tok for tok in java.raw2idxs(x) ])
@@ -32,7 +41,7 @@ class Evaluator(object):
             idx_in = self.dataset["idx"][i*batch_size:(i+1)*batch_size]
             size = len(batch_in)
 
-            batch_in, ls = autopad(batch_in, maxlen=100)
+            batch_in, ls = autopad(batch_in, maxlen=512)
             batch_in = list(map(idx_func, batch_in))
             y = [1] * len(ls)
             dic = {"x": batch_in, "y": y, "l": ls}

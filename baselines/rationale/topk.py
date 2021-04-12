@@ -20,7 +20,8 @@ class TopKThresholder(Thresholder):
         rationales = []
         for b in range(attentions.shape[0]):
             attn = attentions[b][:lens[b]]
-            max_length = math.ceil(len(attn) * self._max_length_ratio)
+            # max_length = math.ceil(len(attn) * self._max_length_ratio)
+            max_length = self._max_length_ratio
             top_ind, top_vals = np.argsort(attn)[-max_length:], \
                                 np.sort(attn)[-max_length:]
             if as_one_hot:
