@@ -9,17 +9,16 @@ from dataset import Dataset, Java
 
 
 def main():
-    gpu_num = 0
-    model_path = "./save/lstm/11.pt"
-    data_path = '../../bigJava/datasets/Java.pkl'
-    out_path = '../../bigJava/datasets/test_tp_lstm.pkl'
+    gpu_num = 1
+    _data = "PY_OP"
+    model_path = "./save/py-op/9.pt"
+    data_path = '../../CuBert/wrong_op/Python.pkl'
+    out_path = '../../CuBert/wrong_op/test_tp_lstm.pkl'
 
-    with open(data_path, 'rb') as f:
-        test_data = pickle.load(f)
     if gpu_num < 0:
         device = torch.device("cpu")
     else:
-        device = torch.device("cuda")
+        device = torch.device("cuda", gpu_num)
     
     with open(data_path, "rb") as f:
         data = pickle.load(f)
@@ -30,9 +29,9 @@ def main():
     hidden_size = 600
     n_layers = 2
     n_channel = -1
-    n_class_dict = {"JAVA": 2}
-    n_class = n_class_dict["JAVA"]
-    max_len = 400
+    n_class_dict = {"JAVA": 2, "PY150": 2, "PY_OP": 2}
+    n_class = n_class_dict[_data]
+    max_len = {"JAVA": 400, "PY150": 250, "PY_OP": 512}[_data]
     bidirection = True
 
     enc = LSTMEncoder(embedding_dim=embedding_size, hidden_dim=hidden_size,
@@ -40,6 +39,7 @@ def main():
     classifier = LSTMClassifier(vocab_size=vocab_size, encoder=enc,
                     num_class=n_class, device=device).to(device)
     classifier.load_state_dict(torch.load(model_path))
+    classifier.to(device)
     classifier.eval()
     # classifier = myDataParallel(classifier).to(device)
 
@@ -75,6 +75,7 @@ def main():
 
     print("Original size: %d" % (test_set.get_size()))
     print("Current size: %d" % (len(out_dict["idx"])))
+    print(len(out_dict["idx"]) / test_set.get_size())
 
 if __name__ == '__main__':
     main()

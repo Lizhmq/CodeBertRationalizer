@@ -3,6 +3,7 @@ import os
 import pickle
 
 from dataset import Java, Dataset
+# from dataset2 import Py150, Dataset
 from models.lstm_cls import LSTMEncoder, LSTMClassifier
 from models.Transformer import TransformerClassifier
 from transformers import AdamW
@@ -98,14 +99,14 @@ if __name__ == "__main__":
     if opt.gpu == "-1":
         device = torch.device("cpu")
     else:
-        device = torch.device("cuda")
-        # device = torch.device("cuda", int(opt.gpu))
+        # device = torch.device("cuda")
+        device = torch.device("cuda", int(opt.gpu))
 
     _save = os.path.join("./save", opt.save_name)
     if not os.path.isdir(_save):
         os.mkdir(_save)
 
-    data_dict = {"JAVA": "../../bigJava/datasets"}
+    data_dict = {"JAVA": "../../bigJava/datasets", "PY150": "../../great", "PY_OP": "../../CuBert/wrong_op"}
     _data = data_dict[opt.data.upper()]
     _drop = opt.dropout
     _lr = opt.lr
@@ -123,22 +124,28 @@ if __name__ == "__main__":
     hidden_size = 600
     n_layers = 2
     n_channel = -1
-    n_class_dict = {"JAVA": 2}
+    n_class_dict = {"JAVA": 2, "PY150": 2, "PY_OP": 2}
     n_class = n_class_dict[opt.data.upper()]
-    max_len = 400
+    max_len = {"JAVA": 400, "PY150": 250, "PY_OP": 512}[opt.data.upper()]
     bidirection = True
 
     ## WARNING: dataset is pre saved, if parameters are changed, please run dataset.py first
     if _load_dataset:
         print("Loading dataset.")
-        with open(os.path.join(_data, "Java.pkl"), "rb") as f:
+        load_path = {"JAVA": "Java.pkl", "PY150": "Py150.pkl", "PY_OP": "Python.pkl"}[opt.data.upper()]
+        with open(os.path.join(_data, load_path), "rb") as f:
             dataset = pickle.load(f)
         print("Done.")
     else:
         print("Creating dataset.")
-        dataset = Java(path=_data,
-                    max_len=max_len,
-                    vocab_size=vocab_size)
+        if opt.data.uppper() in ["JAVA", "PY_OP"]:
+            dataset = Java(path=_data,
+                        max_len=max_len,
+                        vocab_size=vocab_size)
+        else:
+            dataset = Py150(path=_data,
+                        max_len=max_len,
+                        vocab_size=vocab_size)
         print("Done.")
     training_set = dataset.train
     valid_set = dataset.dev

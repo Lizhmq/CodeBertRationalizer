@@ -1,4 +1,4 @@
-import pickle, gzip
+import pickle
 import os
 import random
 import numpy
@@ -6,8 +6,8 @@ import copy
 
 class Dataset(object):
     
-    def __init__(self, xs=[], ys=[], raws=None, norms=None, ids=None, pos=None, span=None,
-                 idx2txt=[], txt2idx={}, max_len=400, vocab_size=30000, dtype=None):
+    def __init__(self, xs=[], ys=[], raws=None, norms=None, ids=None, pos=None, cands=None, targets=None,
+                 idx2txt=[], txt2idx={}, max_len=250, vocab_size=30000, dtype=None):
         
         self.__dtype = dtype
         self.__vocab_size = vocab_size
@@ -21,7 +21,8 @@ class Dataset(object):
         self.__ls = []
         self.__ids = []
         self.__pos = []
-        self.__span = []
+        self.__cands = []
+        self.__targets = []
         if raws is None:
             assert len(xs) == len(ys)
             raws = [None for _ in ys]
@@ -33,21 +34,26 @@ class Dataset(object):
             pos = [None for _ in ys]
         else:
             assert len(xs) == len(pos)
-        if span is None:
-            span = [None for _ in ys]
+        if cands is None:
+            cands = [None for _ in ys]
         else:
-            assert(len(xs) == len(span))
+            assert(len(xs) == len(cands))
+        if targets is None:
+            targets = [None for _ in ys]
+        else:
+            assert(len(cands) == len(targets))
         if ids is None:
             ids = list(range(len(xs)))
         else:
             assert len(xs) == len(ids)
-        for x, y, r, n, i, p, sp in zip(xs, ys, raws, norms, ids, pos, span):
+        for x, y, r, n, i, p, cd, tg in zip(xs, ys, raws, norms, ids, pos, cands, targets):
             self.__raws.append(r)
             self.__norms.append(n)
             self.__ys.append(y)
             self.__ids.append(i)
             self.__pos.append(p)
-            self.__span.append(sp)
+            self.__cands.append(cd)
+            self.__targets.append(tg)
             if len(x) > self.__max_len:
                 self.__ls.append(self.__max_len)
             else:
@@ -73,7 +79,8 @@ class Dataset(object):
             and len(self.__xs) == len(self.__ys) \
             and len(self.__ys) == len(self.__ls) \
             and len(self.__ls) == len(self.__ids) \
-            and len(self.__ids) == len(self.__span)
+            and len(self.__ids) == len(self.__cands) \
+            and len(self.__cands) == len(self.__targets)
         
         self.__epoch = None
         self.reset_epoch()
@@ -85,7 +92,7 @@ class Dataset(object):
     def next_batch(self, batch_size=32):
         
         batch = {"x": [], "y": [], "l": [], "raw": [], "norm": [], "id": [], "pos": [],
-                 "span": [], "new_epoch": False}
+                 "candidates": [], "targets": [], "new_epoch": False}
         assert batch_size <= self.__size
         if len(self.__epoch) < batch_size:
             batch['new_epoch'] = True
@@ -106,8 +113,11 @@ class Dataset(object):
             batch['pos'].append(self.__pos[i])
         batch['pos'] = copy.deepcopy(batch['pos'])
         for i in idxs:
-            batch['span'].append(self.__span[i])
-        batch['span'] = copy.deepcopy(batch['span'])
+            batch['candidates'].append(self.__cands[i])
+        batch['candidates'] = copy.deepcopy(batch['candidates'])
+        for i in idxs:
+            batch['targets'].append(self.__targets[i])
+        batch['targets'] = copy.deepcopy(batch['targets'])
         return batch
         
     def idxs2raw(self, xs, ls):
@@ -126,10 +136,11 @@ class Dataset(object):
     def get_rest_epoch_size(self):
         
         return len(self.__epoch)
-        
-class Java(object):
+
+
+class Py150(object):
     
-    def __init__(self, path, max_len=400, vocab_size=30000, dtype='32'):
+    def __init__(self, path, max_len=250, vocab_size=30000, dtype='32'):
         
         self.__dtypes = self.__dtype(dtype)
         self.__max_len = max_len
@@ -158,16 +169,17 @@ class Java(object):
     
 
     def build_dataset(self, data):
-        raw, norm, x, y, ids, pos, span = [], [], [], [], [], [], []
+        raw, norm, x, y, ids, pos, cands, targets = [], [], [], [], [], [], [], []
         for i in range(len(data["label"])):
             raw.append(data["raw"][i])
             norm.append(data["norm"][i])
             x.append(self.raw2idxs(norm[-1]))
             y.append(data["label"][i])
             ids.append(i)
-            pos.append(data["idx"][i])
-            span.append(data["span"][i])
-        return Dataset(xs=x, ys=y, raws=raw, norms=norm, ids=ids, pos=pos, span=span,
+            pos.append(data["error"][i])
+            cands.append(data["candidates"][i])
+            targets.append(data["targets"][i])
+        return Dataset(xs=x, ys=y, raws=raw, norms=norm, ids=ids, pos=pos, cands=cands, targets=targets,
                         idx2txt=self.__idx2txt,
                         txt2idx=self.__txt2idx,
                         max_len=self.__max_len,
@@ -243,16 +255,13 @@ class Java(object):
         for i in range(self.__vocab_size + 2):
             self.__txt2idx[self.__idx2txt[i]] = i
 
-
 if __name__ == "__main__":
     
     import time
     start_time = time.time()
-    # java = Java(path="../../bigJava/datasets")
-    java = Java(path="../../CuBert/wrong_op")
+    java = Py150(path="../../great")
     print ("time cost = " + str(time.time()-start_time)+" sec")
-    # with open("../../bigJava/datasets/Java.pkl", "wb") as f:
-    with open("../../CuBert/wrong_op/Python.pkl", "wb") as f:
+    with open("../../great/Py150.pkl", "wb") as f:
         pickle.dump(java, f)
 
     start_time = time.time()
