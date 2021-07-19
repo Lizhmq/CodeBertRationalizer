@@ -131,38 +131,31 @@ class ClassifierDataset(Dataset):
                 logger.warning("Loading features from cached file %s", cached_file)
             with open(cached_file, 'rb') as handle:
                 datas = pickle.load(handle)
-                self.inputs, self.labels = datas["inputs"], datas["labels"]
+                self.inputs, self.labels, self.idxs = datas["inputs"], datas["labels"], datas["idxs"]
 
         else:
             self.inputs = []
             self.labels = []
+            self.idxs = []
             if file_type != "test":
-                datafile = os.path.join(args.data_dir, "train.pkl")
-                datafile2 = os.path.join(args.data_dir, "valid.pkl")
+                if file_type == "train":
+                    datafile = os.path.join(args.data_dir, "train.pkl")
+                else:
+                    datafile = os.path.join(args.data_dir, "valid.pkl")
             else:
                 datafile = os.path.join(args.data_dir, "test.pkl")
             if file_type == 'train':
                 logger.warning("Creating features from dataset file at %s", datafile)
             datas = pickle.load(open(datafile, "rb"))
-            datas2 = pickle.load(open(datafile2, "rb"))
             labels = datas["label"]
             inputs = datas["norm"]
-            # inputs = datas["raw"]
-
-            labels2 = datas2["label"]
-            inputs2 = datas2["norm"]
-            # inputs2 = datas2["raw"]
+            idxs = datas["idx"]
 
             # train_len = len(inputs)
             # split_l = int(train_len * split_rate)
-
-            if file_type == "train":
-                inputs, labels = inputs, labels
-            elif file_type == "dev":
-                inputs, labels = inputs2, labels2
             length = len(inputs)
 
-            for idx, (data, label) in enumerate(zip(inputs, labels)):
+            for idx, (data, label, idx) in enumerate(zip(inputs, labels, idxs)):
                 if idx % world_size == local_rank:
                     code = " ".join(data)
                     code_tokens = tokenizer.tokenize(code)[:block_size-2]
@@ -172,6 +165,7 @@ class ClassifierDataset(Dataset):
                     code_ids += [tokenizer.pad_token_id] * padding_length
                     self.inputs.append(code_ids)
                     self.labels.append(label)
+                    self.idxs.append(idx)
 
                 if idx % (length//10) == 0:
                     percent = idx / (length//10) * 10
@@ -181,10 +175,10 @@ class ClassifierDataset(Dataset):
                 logger.warning("Rank %d Training %d samples"%(local_rank, len(self.inputs)))
                 logger.warning("Saving features into cached file %s", cached_file)
             with open(cached_file, 'wb') as handle:
-                pickle.dump({"inputs": self.inputs, "labels": self.labels}, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump({"inputs": self.inputs, "labels": self.labels, "idxs": self.idxs}, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def __len__(self):
         return len(self.inputs)
 
     def __getitem__(self, item):
-        return torch.tensor(self.inputs[item]), torch.tensor(self.labels[item])
+        return torch.tensor(self.inputs[item]), torch.tensor(self.labels[item]), torch.tensor(self.idxs[item])
