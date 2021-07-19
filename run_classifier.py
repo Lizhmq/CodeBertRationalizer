@@ -147,7 +147,7 @@ def train(args, train_dataset, model, tokenizer, fh, pool):
  
     for idx in range(args.start_epoch, int(args.num_train_epochs)): 
         for step, batch in enumerate(train_dataloader):
-            inputs, labels = batch
+            inputs, labels, uselessidxs = batch
             batch_max_length = inputs.ne(tokenizer.pad_token_id).sum(-1).max().item()
             inputs = inputs[:, :batch_max_length]
             inputs = inputs.to(args.device)
@@ -272,7 +272,7 @@ def evaluate(args, model, tokenizer, prefix="", eval_when_training=False):
     model.eval()
        
     for batch in eval_dataloader:
-        inputs, labels = batch
+        inputs, labels, uselessidxs = batch
         batch_max_length = inputs.ne(tokenizer.pad_token_id).sum(-1).max().item()
         inputs = inputs[:, :batch_max_length]
         inputs = inputs.to(args.device)
