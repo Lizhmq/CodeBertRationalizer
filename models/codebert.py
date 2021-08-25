@@ -57,15 +57,23 @@ class codebert():
             return logits, attentions
         return logits
     
-    def run(self, inputs, batch_size=16):
+    def run(self, inputs, batch_size=16, need_attn=False):
         input_ids = self.tokenize(inputs, cut_and_pad=True, ret_id=True)
-        outputs = []
+        outputs, attns = [], []
         batch_num = (len(input_ids) - 1) // batch_size + 1
         for step in range(batch_num):
             batch = torch.tensor(input_ids[step*batch_size: (step+1)*batch_size])
-            output = self._run_batch(batch)
+            output = self._run_batch(batch, need_attn)
+            if need_attn:
+                output, attn = output
             outputs.append(output)
-        outputs = torch.stack(outputs, 0).squeeze(0)
+            if need_attn:
+                attns.append(attn[-1])  # last layer
+        outputs = torch.cat(outputs, 0)
+        if need_attn:
+            attns = torch.cat(attns, 0)
+            attns = attns[:, :, 0, :]   # position 0 [CLS], (B, H, L)
+            return outputs, attns
         return outputs
 
     def run_info(self, inputs, batch_size=16, need_attn=True):
@@ -103,9 +111,9 @@ class codebert():
             outputs.append(output)
             if need_attn:
                 attns.append(attn[-1])     # get last layer attn   
-        logits = torch.stack(outputs).squeeze(0)
+        logits = torch.cat(outputs)
         if need_attn:
-            attns = torch.stack(attns).squeeze(0)
+            attns = torch.cat(attns)
         probs = torch.nn.Softmax(dim=-1)(logits)
 
         output_dict = {}

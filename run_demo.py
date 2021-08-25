@@ -1,22 +1,31 @@
 import torch
 from models.codebert import codebert_mlm, codebert_cls
 from scorer.base_scorer import SaliencyScorer
-from scorer.gradient_scorer import  GradientSaliency
+from scorer.gradient_scorer import GradientSaliency
+from scorer.integrad_scorer import IntegradSaliency
 
-# device = torch.device("cuda", 0)
-device = torch.device("cpu")
-cls_model = codebert_cls("./save/java-classifier4/checkpoint-36000-0.9365", device)
+device = torch.device("cuda", 2)
+# device = torch.device("cpu")
+cls_model = codebert_cls("./save/java0/checkpoint-28000-0.9366", device)
 cls_model.model = cls_model.model.to(device)
+# cls_model.model.eval()
 
 inputs = [
-    "int main ( ) { int n , i ; n <= 11 ; return 0 }",
+    "for ( int i = 0 ; i <= length ; ++ i ) { }",
     # "int main ( ) { int <mask>, i ; <mask> = 1 ; return 0 }",  # tokenizer fails on <mask>
-    "void main ( ) { ALongVarName x ; }",
+    # "for ( int i = 0 ; i <= a . length ; ++ i ) { }",
 ]
 inputs = [st.split() for st in inputs]
-scorer = GradientSaliency(cls_model)
-attentions = scorer(inputs)
-# print(attentions)
-print(attentions)
 
-# print(output_dict["predicted_labels"])
+scorer = SaliencyScorer(cls_model)
+scores = scorer(inputs)
+print(scores)
+
+scorer = GradientSaliency(cls_model)
+scores = scorer(inputs)
+print(scores)
+
+
+scorer = IntegradSaliency(cls_model)
+scores = scorer(inputs)
+print(scores)

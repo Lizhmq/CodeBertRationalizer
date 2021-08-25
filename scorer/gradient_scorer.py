@@ -21,7 +21,7 @@ class GradientSaliency(nn.Module):
 
     def forward(self, inputs):
         with torch.enable_grad():
-            self._model.model.train()
+            # self._model.model.train()
             for param in self.embedding_layer.parameters():
                 param.requires_grad = True
 
@@ -43,10 +43,11 @@ class GradientSaliency(nn.Module):
             ]  # (B, C)
 
 
+            self._model.model.zero_grad()
             predicted_class_probs.sum().backward(retain_graph=True)
 
-
-            gradients = ((embeddings * embeddings.grad).sum(-1).detach()).abs()
+            gradients = ((embeddings.grad * embeddings.grad).sum(-1).detach()).abs()
+            # gradients = (embeddings * embeddings.grad).sum(-1).detach()
             gradients = gradients / gradients.sum(-1, keepdim=True)
 
             attentions = gradients
