@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import logging
 import torch
+import torch.nn as nn
 
 from models.tokenizer import Tokenizer
 from utils import get_start_idxs_batched
@@ -22,6 +23,9 @@ class codebert():
         self.block_size = 512
         self.device = device
         self.attn_head = attn_head
+        self.celoss = nn.CrossEntropyLoss()
+        self.reghead = -1
+        self.reglambda = 0.1
 
     def tokenize(self, inputs, cut_and_pad=False, ret_id=False):
         rets = []
@@ -75,6 +79,17 @@ class codebert():
             attns = attns[:, :, 0, :]   # position 0 [CLS], (B, H, L)
             return outputs, attns
         return outputs
+
+    def reg_loss(self, logits, attns, labels, idxs):
+        loss1 = self.celoss(logits, labels)
+        if self.reghead == -1:
+            attns = attns.mean(1)
+        else:
+            attns = attns[:, self.reghead, :]
+        loss2 = self.celoss(attns, idxs)
+        return loss1 + self.reglambda * loss2
+
+
 
     def run_info(self, inputs, batch_size=16, need_attn=True):
         '''
