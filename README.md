@@ -10,22 +10,28 @@ Repository for holding source code of paper "WELL: Applying Bug Detectors to Bug
 ├── dataset.py
 ├── eval_rationale.py					# evaluate localization accuracy
 ├── filter_dataset.py
+├── fix.py								# WELL for bug fixing
 ├── gen_vis.py
 ├── models								# CodeBERT model
-│   ├── codebert.py
-│   └── tokenizer.py
-├── run_classifier.py					# training script
-├── run_eval.py
+│   ├── codebert.py
+│   ├── nblmodel.py
+│   └── tokenizer.py
+├── nbl.py								# Evaluate NBL model
+├── run_classifier.py
+├── run_nbl.py							# Train NBL model
 ├── scorer								# attention scorer and gradient scorer
-│   ├── base_scorer.py
-│   ├── evaluator.py
-│   └── gradient_scorer.py
+│   ├── base_scorer.py
+│   ├── evaluator.py
+│   ├── gradient_scorer.py
+│   └──integrad_scorer.py
 ├── thretholder							# extractor - e.g. top-k/contiguous extractor
-│   ├── base_thresholder.py
-│   ├── contiguous_mask.py
-│   ├── contiguous.py
-│   └── topk.py
-├── train_classifier.sh					# training script
+│   ├── base_thresholder.py
+│   ├── contiguous_mask.py
+│   ├── contiguous.py
+│   └── topk.py
+├── train_classifier.sh					# Training script
+├── train_nbl.sh
+├── train_reg.sh
 └── utils.py
 
 ```
