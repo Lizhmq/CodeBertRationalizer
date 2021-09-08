@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 from __future__ import absolute_import, division, print_function
 
-import os
+import os, json
 import pickle
 
 import numpy as np
@@ -102,3 +102,74 @@ class ClassifierDataset(Dataset):
 
     def __getitem__(self, item):
         return torch.tensor(self.inputs[item]), torch.tensor(self.labels[item]), torch.tensor(self.idxs[item])
+
+
+class NBLDataset(Dataset):
+    def __init__(self, tokenizer, args, logger, file_name='xxx.pkl', block_size=512):
+        if args.local_rank == -1:
+            local_rank = 0
+            world_size = 1
+        else:
+            local_rank = args.local_rank
+            world_size = torch.distributed.get_world_size()
+
+        if not os.path.exists(args.output_dir):
+            os.makedirs(args.output_dir)
+        cached_file = os.path.join(args.output_dir, file_name[:-4] +"_blocksize_%d" %
+                                   (block_size)+"_wordsize_%d" % (world_size)+"_rank_%d" % (local_rank))
+        if os.path.exists(cached_file):
+            with open(cached_file, 'rb') as handle:
+                datas = pickle.load(handle)
+                self.inputs, self.labels, self.tids = datas["inputs"], datas["labels"], datas["tids"]
+        else:
+            self.inputs = []
+            self.labels = []
+            self.tids = []
+            datafile = os.path.join(args.data_dir, file_name)
+            datalst = []
+            with open(datafile, "r") as f:
+                for line in f.readlines():
+                    datalst.append(json.loads(line))
+            with open(os.path.join(args.data_dir, "tidmap.json"), "r") as f:
+                mapdic = json.loads(f.read())
+            
+            inputs = [dic["x"] for dic in datalst]
+            labels = [dic["y"] for dic in datalst]
+            tids = [mapdic[dic["tid"]] for dic in datalst]
+
+            length = len(inputs)
+
+            for idx, (data, label, tid) in enumerate(zip(inputs, labels, tids)):
+                if idx % world_size == local_rank:
+                    code = " ".join(data)
+                    code_tokens = tokenizer.tokenize(code)
+                    code_tokens = code_tokens[:block_size-2]
+                    code_tokens = [tokenizer.cls_token] + code_tokens + [tokenizer.sep_token]
+                    code_ids = tokenizer.convert_tokens_to_ids(code_tokens)
+                    padding_length = block_size - len(code_ids)
+                    code_ids += [tokenizer.pad_token_id] * padding_length
+                    # print(data)
+                    # print(data[keeppos])
+                    # print(code_tokens)
+                    # print(pos)
+                    # print("\n\n\n")
+                    self.inputs.append(code_ids)
+                    self.labels.append(label)
+                    self.tids.append(tid)
+
+                if idx % (length//10) == 0:
+                    percent = idx / (length//10) * 10
+                    logger.warning("Rank %d, load %d"%(local_rank, percent))
+
+            if 'train' in file_name:
+                logger.warning("Rank %d Training %d samples"%(local_rank, len(self.inputs)))
+                logger.warning("Saving features into cached file %s", cached_file)
+
+            with open(cached_file, 'wb') as handle:
+                pickle.dump({"inputs": self.inputs, "labels": self.labels, "tids": self.tids}, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def __len__(self):
+        return len(self.inputs)
+
+    def __getitem__(self, item):
+        return torch.tensor(self.inputs[item]), torch.tensor(self.labels[item]), torch.tensor(self.tids[item])

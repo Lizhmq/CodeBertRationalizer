@@ -20,14 +20,14 @@ def load_data(path):
     return data
 
 def main():
-    # set_seed(2333)
-    # device = torch.device("cuda", 2)
-    device = torch.device("cpu")
-    # cls_model = codebert_cls("./save/java-new-head-1/checkpoint-28000-0.9281", device, attn_head=6)     # not selected
-    cls_model = codebert_cls("./save/java-new-head6/checkpoint-28000-0.9256", device, attn_head=6)     # not selected
-    # cls_model = codebert_cls("./save/java0/checkpoint-16000-0.9311", device, attn_head=-1)
-    # cls_model = codebert_cls("./save/varmis-512/checkpoint-36000-0.9514", device, attn_head=-1)
-    # cls_model = codebert_cls("./save/python-op2/checkpoint-38000-0.9305", device, attn_head=-1)
+    set_seed(2333)
+    # device = torch.device("cpu")
+    device = torch.device("cuda", 2)
+    # model_path = "./save/java-head-1/checkpoint-40000-0.9328"
+    # model_path = "./save/varmis-head-1/checkpoint-176000-0.9568"
+    model_path = "./save/pyop-head-1/checkpoint-28000-0.9126"
+    cls_model = codebert_cls(model_path, device, attn_head=-1)
+
     cls_model.model = cls_model.model.to(device)
     cls_model.model.eval()
 
@@ -38,28 +38,27 @@ def main():
     # extractor1 = ContiguousMaskThresholder(0.0001)
     # extractor2 = ContiguousThresholder(0.0001)
 
-    # data_path = "../bigJava/datasets/new_test_tp_ts32.pkl"
-    data_path = "../bigJava/datasets/test.pkl"
-    # data_path = "../great/test_tp_36.pkl"
-    # data_path = "../CuBert/wrong_op/test_tp_ts.pkl"
+    # data_path = "../well_datasets/javaop/testtp.pkl"
+    # data_path = "../well_datasets/great/testtp.pkl"
+    data_path = "../well_datasets/pyop/testtp28.pkl"
 
 
     data = load_data(data_path)
     run = "attention"
-    sample_num = 100
+    sample_num = 2000
 
     if run == "attention":
-        # idxs = list(range(12))
-        idxs = [-1, 6]
-        processed = 0
+        # idxs = [-1] + list(range(12))
+        idxs = [-1, 3, 5, 8]
+        ls = list(range(len(data["norm"])))
+        random.shuffle(ls)
+        ls = ls[:sample_num]
         for iterations in range(1):         # repeat to counteract randomness
             for idx in idxs:
+                processed = 0
                 cls_model.attn_head = idx
                 print(idx)
                 print("Attention - TopK:", sep="\t")
-                ls = list(range(len(data["norm"])))
-                random.shuffle(ls)
-                ls = ls[:sample_num]
                 pos = 0
                 print("Test Dataset Size: %d" % (len(ls)))
                 for i in tqdm(ls):
@@ -75,7 +74,7 @@ def main():
                     # rationale = extractor1(scores, [cands])[0]     # for mask selection
                     rationale = extractor1(scores)[0]
                     rationale = [k["span"] for k in rationale]
-                    if data["idx"][i] in range(*rationale[0]):
+                    if data["idx"][i] in range(*rationale[0]) or data["idx"][i] - 1 in range(*rationale[0]):
                         pos += 1
                     # see is not???
                     # if "wrong_op" in data_path:
