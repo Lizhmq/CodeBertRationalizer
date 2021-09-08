@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import copy
+from copy import deepcopy as cp
 import pickle
 import torch
 import matplotlib.pyplot as plt
@@ -48,6 +49,47 @@ def get_start_idxs_batched(b_tokens, b_sub_tokens, bpe_indicator='Ġ'):
         ss.append(starts[:len(ends)])
         es.append(ends)
     return ss, es
+
+
+def helper(example, tokenizer, mapdic, device):
+	x, y, pid, tid, lines = example["x"], example["y"], example["id"], example["tid"], example["lines"]
+	tid = torch.tensor([mapdic[tid]]).to(device)
+	code = " ".join(x)
+	code_tokens = tokenizer.tokenize(code)
+	code_tokens = code_tokens[:512-2]
+	code_tokens = [tokenizer.cls_token] + code_tokens + [tokenizer.sep_token]
+	code_ids = tokenizer.convert_tokens_to_ids(code_tokens)
+	padding_length = 512 - len(code_ids)
+	code_ids += [tokenizer.pad_token_id] * padding_length
+	code_ids = torch.LongTensor([code_ids]).to(device)
+
+	lines = cp(lines)
+	for i in range(len(lines)):
+		lines[i] = lines[i].replace(" ", "").replace("\t", "")
+	align_tokens = code_tokens[1:-1]
+	for i in range(len(align_tokens)):
+		align_tokens[i] = align_tokens[i].replace("Ġ", "").replace("Ċ", "")
+	idxs = []
+	ii, jj = 0, 0
+	seq1, seq2 = "", ""
+	while jj < len(lines):
+		seq2 += lines[jj]
+		while ii < len(align_tokens) and len(seq1) < len(seq2):
+			seq1 += align_tokens[ii]
+			ii += 1
+		jj += 1
+		idxs.append(ii)
+	assert(len(idxs) == len(lines))
+	ends = cp(idxs)
+	starts = [0] + idxs[:-1]
+	ends = list(filter(lambda x: x <= 512 - 2, ends))
+	starts = starts[:len(ends)]
+	starts = [v + 1 for v in starts]
+	ends = [v + 1 for v in ends]
+	starts = torch.tensor([starts]).to(device).to(torch.int64)
+	ends = torch.tensor([ends]).to(device).to(torch.int64)
+	
+	return code_ids, tid, starts, ends
 
 
 def rainbow_text(x, y, strings, colors, bgcolors, ax=None, **kwargs):
