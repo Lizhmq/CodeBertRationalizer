@@ -6,3 +6,4 @@ baselines/save/*
 *.ipynb
 .ipynb_checkpoints/*
 pics/*
+*.yaml
